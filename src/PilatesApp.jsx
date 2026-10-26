@@ -8,7 +8,7 @@ const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
 const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seansı%20hakkında%20bilgi%20almak%20istiyorum'
 const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=Dr.+Mustafa+Enver+Bey+Cad.+K%C3%BClt%C3%BCr+Apt.+No%3A30%2F7+Alsancak+%C4%B0zmir'
 
-const navItems = ['Dersler', 'Program', 'Eğitmen', 'Galeri', 'Fiyatlar']
+const navItems = ['Dersler', 'Eğitmen', 'Galeri', 'Fiyatlar']
 
 const disciplineButtons = [
   'Mat & Reformer',
@@ -37,15 +37,6 @@ const disciplines = [
     description: 'Stüdyo ekipmanlarıyla desteklenen, core ve stabilite odaklı kontrollü kuvvet çalışması.',
     badge: 'Max 6',
   },
-]
-
-const weeklySchedule = [
-  { day: 'Pazartesi', time: '18:30', className: 'Mat & Reformer', capacity: 'Max 6' },
-  { day: 'Salı', time: '08:30', className: 'Fonksiyonel + Crossfit', capacity: 'Max 8' },
-  { day: 'Çarşamba', time: '19:00', className: 'TRX', capacity: 'Max 6' },
-  { day: 'Perşembe', time: '18:00', className: 'Mat & Reformer', capacity: 'Max 6' },
-  { day: 'Cuma', time: '17:30', className: 'Fonksiyonel + Crossfit', capacity: 'Max 8' },
-  { day: 'Cumartesi', time: '10:00', className: 'TRX', capacity: 'Max 6' },
 ]
 
 const galleryItems = [
@@ -170,41 +161,6 @@ function PilatesApp() {
                 </div>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section className="schedule section" id="program">
-          <div className="section-heading compact">
-            <div>
-              <p className="eyebrow">PROGRAM</p>
-              <h2>Ders programı</h2>
-            </div>
-            <p className="schedule-note">Kapasitesi sınırlı dersler</p>
-          </div>
-
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Gün</th>
-                  <th>Saat</th>
-                  <th>Ders</th>
-                  <th>Kapasite</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weeklySchedule.map((entry) => (
-                  <tr key={`${entry.day}-${entry.time}`}>
-                    <td>{entry.day}</td>
-                    <td>{entry.time}</td>
-                    <td>{entry.className}</td>
-                    <td>
-                      <span className="capacity-badge">{entry.capacity}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </section>
 

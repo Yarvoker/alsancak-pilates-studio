@@ -311,7 +311,6 @@ h3 {
 }
 
 .classes,
-.schedule,
 .booking,
 .trainer,
 .gallery,
@@ -372,13 +371,6 @@ h3 {
   line-height: 1.7;
 }
 
-.schedule-note {
-  color: var(--muted);
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -411,22 +403,6 @@ tbody td {
 
 tbody tr:last-child td {
   border-bottom: none;
-}
-
-.capacity-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid rgba(232, 185, 35, 0.4);
-  border-radius: 999px;
-  background: rgba(232, 185, 35, 0.12);
-  color: var(--gold-soft);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .booking-layout {
@@ -1166,11 +1142,6 @@ textarea {
 
   table {
     min-width: 620px;
-  }
-
-  .capacity-badge {
-    min-height: 36px;
-    padding: 0 12px;
   }
 
   .header-button,
