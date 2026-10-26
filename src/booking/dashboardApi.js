@@ -38,6 +38,19 @@ export async function fetchMemberHistory(before, limit = 50) {
   return data ?? []
 }
 
+export async function completeMemberProfile({ firstName, lastName, phone, kvkk }) {
+  const { data, error } = await supabase.rpc('complete_member_profile', {
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_phone: phone,
+    p_kvkk: kvkk,
+  })
+  if (error) throw error
+  cached = null
+  inflight = null
+  return data
+}
+
 export async function updateMemberProfile({ firstName, lastName, phone }) {
   const { data, error } = await supabase.rpc('update_member_profile', {
     p_first_name: firstName,

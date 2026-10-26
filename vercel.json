@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/hesabim", "destination": "/index.html" }
+    { "source": "/hesabim", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/index.html" }
   ]
 }

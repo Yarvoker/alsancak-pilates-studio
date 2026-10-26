@@ -48,9 +48,11 @@ export function futureCreditPackage(packages, isoDate, sessionType) {
 
 export function validPersonName(value) {
   const text = String(value ?? '').trim()
-  if (text.length < 2 || text.length > 40) return false
-  if (/\d/u.test(text)) return false
-  return /\p{L}/u.test(text)
+  if (!text || text.length > 40) return false
+  if (/[0-9<>]/u.test(text)) return false
+  if (!/^[\p{L}\s'’´`-]+$/u.test(text)) return false
+  const letters = text.replace(/[^\p{L}]/gu, '')
+  return letters.length >= 2
 }
 
 export function occupancyLabel(slot, past) {

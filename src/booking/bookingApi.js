@@ -24,6 +24,8 @@ const KNOWN_MESSAGES = [
   'Paket seçeneği geçersiz',
   'Paket talebi için kayıtlı üyelik gerekli',
   'Çok fazla bağlama denemesi',
+  'Önce bilgilerini tamamla',
+  'KVKK onayı gerekli',
 ]
 
 export function messageOf(error) {
@@ -33,7 +35,7 @@ export function messageOf(error) {
     || text.includes('permission denied')
     || text.includes('42501')
   ) {
-    return 'Devam etmek için e-posta kodunu doğrula.'
+    return 'Yetkisiz'
   }
   return KNOWN_MESSAGES.find((item) => text.includes(item))
     || 'İşlem tamamlanamadı. Lütfen tekrar dene.'

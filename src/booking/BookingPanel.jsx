@@ -1,18 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   bookSession,
-  claimMemberPhone,
   fetchBookableSlots,
   fetchMemberState,
   messageOf,
   recordBookingInquiry,
-  registerMember,
   registerTrialLesson,
 } from './bookingApi.js'
 import { notifyMemberChanged } from './dashboardApi.js'
-import EmailOtpCard from './EmailOtpCard.jsx'
 import MemberSummary from './MemberSummary.jsx'
-import { normalizePhone } from './phone.js'
 import {
   PACKAGE_OPTIONS,
   creditsOnDate,
@@ -23,7 +19,6 @@ import {
   packageSessionType,
   saveCheckout,
   sheetFor,
-  validPersonName,
 } from './sheetFlow.js'
 import {
   formatStudioDate,
@@ -68,10 +63,38 @@ function groupSeatOpen(slot) {
     && (slot.booked_count ?? 0) < (slot.capacity ?? 0)
 }
 
-function BookingPanel({ authUser = null, onAuthUser }) {
+function readPendingSlot() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem('pending_slot') || 'null')
+    if (!parsed?.slot_id || !parsed?.starts_at) return null
+    return { slot_id: parsed.slot_id, starts_at: parsed.starts_at }
+  } catch {
+    return null
+  }
+}
+
+function writePendingSlot(slot) {
+  try {
+    sessionStorage.setItem('pending_slot', JSON.stringify({
+      slot_id: slot.id,
+      starts_at: slot.starts_at,
+    }))
+  } catch {
+    // Private browsing can reject storage. The login page then opens the account panel.
+  }
+}
+
+function clearPendingSlot() {
+  try {
+    sessionStorage.removeItem('pending_slot')
+  } catch {
+    // Ignore storage failures. The sheet can still open for this visit.
+  }
+}
+
+function BookingPanel({ authUser = null }) {
   const dates = useMemo(() => studioDatesForWeek(), [])
-  const [phone, setPhone] = useState('')
-  const [authPrompt, setAuthPrompt] = useState(false)
+  const [loginPrompt, setLoginPrompt] = useState(false)
   const [memberState, setMemberState] = useState(null)
   const [selectedDate, setSelectedDate] = useState(dates[0])
   const [slots, setSlots] = useState([])
@@ -79,23 +102,17 @@ function BookingPanel({ authUser = null, onAuthUser }) {
   const [sheet, setSheet] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
-  const [lookupBusy, setLookupBusy] = useState(false)
   const [slotsBusy, setSlotsBusy] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
   const [clock, setClock] = useState(initialClock)
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [trialPhone, setTrialPhone] = useState('')
   const [checkoutKind, setCheckoutKind] = useState('')
   const [startDate, setStartDate] = useState('')
   const [startSlots, setStartSlots] = useState([])
   const [startBusy, setStartBusy] = useState(false)
-  const [registerOpen, setRegisterOpen] = useState(false)
   const [trialSlotId, setTrialSlotId] = useState('')
   const sheetRef = useRef(null)
-  const lookupSeq = useRef(0)
   const authUserRef = useRef(authUser)
-  const pendingSlotRef = useRef(null)
+  const loginLinkRef = useRef(null)
   authUserRef.current = authUser
 
   const member = memberState?.member ?? null
@@ -128,54 +145,68 @@ function BookingPanel({ authUser = null, onAuthUser }) {
   }, [selectedDate])
 
   useEffect(() => {
+    if (!authUser) {
+      setMemberState(null)
+      return undefined
+    }
+    let active = true
+    fetchMemberState()
+      .then((next) => {
+        if (active) setMemberState(next)
+      })
+      .catch((lookupError) => {
+        if (active) setError(messageOf(lookupError))
+      })
+    return () => {
+      active = false
+    }
+  }, [authUser?.id])
+
+  useEffect(() => {
     if (!sheet) return undefined
     sheetRef.current?.focus()
     return undefined
   }, [sheet, selectedSlotId])
 
-  function requireAuth() {
-    if (authUserRef.current) return true
-    setAuthPrompt(true)
-    setError('Devam etmek için e-posta kodunu doğrula.')
-    return false
-  }
+  useEffect(() => {
+    if (!loginPrompt) return undefined
+    loginLinkRef.current?.focus()
+    return undefined
+  }, [loginPrompt])
 
-  function handleUser(user) {
-    const previousId = authUserRef.current?.id ?? null
-    const nextId = user?.id ?? null
-    authUserRef.current = user
-    onAuthUser?.(user)
-    if (!nextId) {
-      setMemberState(null)
-      return
+  useEffect(() => {
+    if (!authUser || !memberState || slotsBusy) return undefined
+    const pending = readPendingSlot()
+    if (!pending) return undefined
+    const when = istanbulDateTime(pending.starts_at)
+    if (!dates.includes(when.date)) {
+      clearPendingSlot()
+      return undefined
     }
-    if (!previousId && pendingSlotRef.current) {
-      const slot = pendingSlotRef.current
-      pendingSlotRef.current = null
-      setAuthPrompt(false)
-      setError('')
-      setSheet('checking')
-      identify(slot.session_type)
+    if (selectedDate !== when.date) {
+      setSelectedDate(when.date)
+      setSlotsBusy(true)
+      return undefined
     }
-  }
+    const slot = slots.find((item) => item.id === pending.slot_id)
+    if (!slot) {
+      clearPendingSlot()
+      return undefined
+    }
+    if (memberState.profile_complete !== true) return undefined
+    queueMicrotask(() => clearPendingSlot())
+    setLoginPrompt(false)
+    setSelectedSlotId(slot.id)
+    setError('')
+    setSheet(sheetFor(memberState.member, when.date, slot.session_type, groupSeatOpen(slot)))
+    return undefined
+  }, [authUser, memberState, slots, slotsBusy, selectedDate, dates])
 
   async function refreshMember() {
     const next = await fetchMemberState()
     setMemberState(next)
     setClock(Date.now())
     return next
-  }
-
-  async function applyClaim(normalized) {
-    if (!normalized) return null
-    const result = await claimMemberPhone(normalized)
-    const status = result?.status || null
-    if (status === 'pending') {
-      setRegisterOpen(false)
-      setSheet(null)
-      setNotice('Bu telefonun hesabına bağlanması için stüdyo onayı gerekiyor.')
-    }
-    return status
   }
 
   async function reloadSlots() {
@@ -185,16 +216,9 @@ function BookingPanel({ authUser = null, onAuthUser }) {
     return rows
   }
 
-  function rememberInquiry(isoDate, phoneValue, source) {
-    const raw = String(phoneValue ?? '').trim().slice(0, 40)
-    if (!isoDate && !raw) return
-    recordBookingInquiry(isoDate, raw, source).catch(() => {})
-  }
-
-  function updatePhone(value) {
-    setPhone(value)
-    setNotice('')
-    setError('')
+  function rememberInquiry(isoDate, source) {
+    if (!isoDate) return
+    recordBookingInquiry(isoDate, '', source).catch(() => {})
   }
 
   function closeSheet() {
@@ -203,114 +227,58 @@ function BookingPanel({ authUser = null, onAuthUser }) {
     setError('')
   }
 
-  async function identify(sessionType = selectedSlot?.session_type) {
-    if (!requireAuth()) return null
-    const seq = lookupSeq.current + 1
-    lookupSeq.current = seq
-    setLookupBusy(true)
-    setError('')
-
-    try {
-      const normalized = normalizePhone(phone)
-      const status = normalized ? await applyClaim(normalized) : null
-      if (lookupSeq.current !== seq) return null
-      if (status === 'pending') return null
-      const next = await refreshMember()
-      if (lookupSeq.current !== seq) return next
-      setSheet(sheetFor(next.member, selectedDate, sessionType, groupSeatOpen(selectedSlot)))
-      setNotice(next.member ? '' : 'Bu telefonla kayıtlı üyelik yok.')
-      return next
-    } catch (lookupError) {
-      if (lookupSeq.current === seq) {
-        const text = messageOf(lookupError)
-        setError(text)
-        setRegisterOpen(false)
-        setSheet(text === 'Çok fazla bağlama denemesi' || text === 'Devam etmek için e-posta kodunu doğrula.'
-          ? null
-          : 'trial-offer')
-      }
-      return null
-    } finally {
-      if (lookupSeq.current === seq) setLookupBusy(false)
-    }
-  }
-
-  function checkTypedPhone() {
-    lookupMember()
+  function openSheet(slot, state) {
+    const when = istanbulDateTime(slot.starts_at)
+    setSheet(sheetFor(state?.member, when.date, slot.session_type, groupSeatOpen(slot)))
   }
 
   async function onSlotClick(slot) {
     setSelectedSlotId(slot.id)
     setNotice('')
     setError('')
+    setLoginPrompt(false)
 
-    if (String(phone).trim()) rememberInquiry(selectedDate, phone, 'phone')
-    if (!authUserRef.current) {
-      pendingSlotRef.current = slot
-      setAuthPrompt(true)
-      setError('Devam etmek için e-posta kodunu doğrula.')
-      return
-    }
-
-    pendingSlotRef.current = null
-    setSheet('checking')
-    await identify(slot.session_type)
-  }
-
-  async function lookupMember() {
-    if (!requireAuth()) return
-    rememberInquiry(selectedDate, phone, 'phone')
-    const normalized = normalizePhone(phone)
-    if (!normalized) {
-      setError('Telefon numarası geçersiz')
-      return
-    }
-
-    setLookupBusy(true)
-    setError('')
-    setNotice('')
-
-    try {
-      const status = await applyClaim(normalized)
-      if (status === 'pending') return
-      const next = await refreshMember()
-      if (!next.member) {
-        setRegisterOpen(true)
-        setNotice('Bu telefonla kayıtlı üyelik yok.')
-      } else {
-        setRegisterOpen(false)
-        setNotice('')
+    if (!authUserRef.current || memberState?.profile_complete !== true) {
+      writePendingSlot(slot)
+      if (!authUserRef.current) {
+        setLoginPrompt(true)
+        return
       }
+      window.location.assign('/hesabim?next=book')
+      return
+    }
+
+    clearPendingSlot()
+    setSheet('checking')
+    try {
+      const next = await refreshMember()
+      if (next?.profile_complete !== true) {
+        writePendingSlot(slot)
+        window.location.assign('/hesabim?next=book')
+        return
+      }
+      openSheet(slot, next)
     } catch (lookupError) {
-      setRegisterOpen(false)
+      setSheet(null)
       setError(messageOf(lookupError))
-    } finally {
-      setLookupBusy(false)
     }
   }
 
-  async function declineTrial() {
-    if (!requireAuth()) return
-
-    setLookupBusy(true)
-    setError('')
-    try {
-      const normalized = normalizePhone(phone)
-      const status = normalized ? await applyClaim(normalized) : null
-      if (status === 'pending') return
-      const next = await refreshMember()
-      const credits = creditsOnDate(next.member?.packages, selectedDate, selectedSlot?.session_type)
-      setSheet(credits > 0 ? 'credits' : 'packages')
-    } catch (lookupError) {
-      setError(messageOf(lookupError))
-      setSheet('packages')
-    } finally {
-      setLookupBusy(false)
-    }
+  function declineTrial() {
+    const credits = creditsOnDate(member?.packages, selectedDate, selectedSlot?.session_type)
+    setSheet(credits > 0 ? 'credits' : 'packages')
   }
 
   function openTrialForm() {
-    setTrialPhone(phone)
+    if (!authUserRef.current || memberState?.profile_complete !== true) {
+      if (selectedSlot) writePendingSlot(selectedSlot)
+      if (!authUserRef.current) {
+        setLoginPrompt(true)
+        return
+      }
+      window.location.assign('/hesabim?next=book')
+      return
+    }
     setNotice('')
     setError('')
     setSheet('trial-form')
@@ -330,49 +298,18 @@ function BookingPanel({ authUser = null, onAuthUser }) {
       return
     }
     setTrialSlotId(item.slot.id)
-    setTrialPhone(phone)
     setError('')
     setNotice('')
     setSheet('trial-form')
   }
 
-  async function submitRegistration(event) {
-    event.preventDefault()
-    if (!requireAuth()) return
-    const normalized = normalizePhone(phone)
-    if (!validPersonName(firstName) || !validPersonName(lastName)) {
-      setError('İsim ve soyisim gerekli')
-      return
-    }
-    if (!normalized) {
-      setError('Telefon numarası geçersiz')
-      return
-    }
-
-    setActionBusy(true)
-    setError('')
-    setNotice('')
-
-    try {
-      await registerMember({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: normalized,
-      })
-      setPhone(normalized)
-      await refreshMember()
-      setRegisterOpen(false)
-      setNotice('Kaydın oluşturuldu.')
-    } catch (registerError) {
-      setError(messageOf(registerError))
-    } finally {
-      setActionBusy(false)
-    }
-  }
-
   async function submitTrial(event) {
     event.preventDefault()
-    if (!requireAuth()) return
+    if (!authUserRef.current || memberState?.profile_complete !== true) {
+      if (selectedSlot) writePendingSlot(selectedSlot)
+      window.location.assign('/hesabim?next=book')
+      return
+    }
     const bookedSlot = startSlots.find((item) => item.id === trialSlotId) || selectedSlot
     const groupOpen = bookedSlot?.session_type === 'group'
       && bookedSlot.status === 'open'
@@ -382,46 +319,32 @@ function BookingPanel({ authUser = null, onAuthUser }) {
       return
     }
 
-    const normalized = normalizePhone(trialPhone)
-    if (!validPersonName(firstName) || !validPersonName(lastName)) {
-      setError('İsim ve soyisim gerekli')
-      return
-    }
-    if (!normalized) {
-      setError('Telefon numarası geçersiz')
-      return
-    }
-
     setActionBusy(true)
     setError('')
     setNotice('')
 
     try {
       await registerTrialLesson({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: normalized,
+        firstName: '',
+        lastName: '',
+        phone: '',
         slotId: bookedSlot.id,
       })
-      setPhone(normalized)
       await refreshMember()
       await reloadSlots()
       setSheet(null)
       setSelectedSlotId('')
       setTrialSlotId('')
-      setRegisterOpen(false)
-      setFirstName('')
-      setLastName('')
       notifyMemberChanged()
       setNotice('Deneme antrenmanın bu grup saatine kaydedildi.')
     } catch (trialError) {
       const text = messageOf(trialError)
       if (text === 'Bu telefonla kayıtlı üyelik var') {
-        setPhone(normalized)
-        const next = await identify()
+        const next = await refreshMember()
         const returning = next?.member?.has_taken_lessons
           || next?.member?.trial_used
           || next?.member?.has_paid_package
+        setSheet('packages')
         setNotice(returning ? 'Kaydın bulundu. Paketini seçebilirsin.' : 'Kaydın bulundu.')
       } else {
         setError(text)
@@ -471,7 +394,16 @@ function BookingPanel({ authUser = null, onAuthUser }) {
   }
 
   async function holdSeat() {
-    if (!requireAuth() || !selectedSlot) return
+    if (!selectedSlot) return
+    if (!authUserRef.current || memberState?.profile_complete !== true) {
+      writePendingSlot(selectedSlot)
+      if (!authUserRef.current) {
+        setLoginPrompt(true)
+        return
+      }
+      window.location.assign('/hesabim?next=book')
+      return
+    }
 
     setActionBusy(true)
     setError('')
@@ -487,9 +419,9 @@ function BookingPanel({ authUser = null, onAuthUser }) {
       setNotice('Yerin tutuldu.')
     } catch (bookError) {
       const text = messageOf(bookError)
-      if (text === 'Üye bulunamadı') {
-        setSheet('trial-offer')
-        setNotice('Bu telefonla kayıtlı üyelik yok.')
+      if (text === 'Üye bulunamadı' || text === 'Önce bilgilerini tamamla') {
+        writePendingSlot(selectedSlot)
+        window.location.assign('/hesabim?next=book')
       } else {
         setError(text)
       }
@@ -542,7 +474,7 @@ function BookingPanel({ authUser = null, onAuthUser }) {
               setSelectedDate(isoDate)
               setSelectedSlotId('')
               setSlotsBusy(true)
-              rememberInquiry(isoDate, phone, 'day')
+              rememberInquiry(isoDate, 'day')
               if (checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')) {
                 pickStartDay(isoDate)
                 return
@@ -588,44 +520,13 @@ function BookingPanel({ authUser = null, onAuthUser }) {
         })}
       </div>
 
-      <EmailOtpCard
-        visible={!authUser && authPrompt}
-        scrollOnLink
-        onUser={handleUser}
-        onLinkError={(message) => {
-          if (!message) return
-          setError(message)
-          setAuthPrompt(true)
-        }}
-      />
-
-      {sheet !== 'trial-form' && (
-        <div className="field-row booking-phone">
-          <label>
-            Telefon
-            <input
-              type="tel"
-              name="phone"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="05xx xxx xx xx"
-              value={phone}
-              onChange={(event) => updatePhone(event.target.value)}
-              onBlur={() => {
-                if (String(phone).trim()) rememberInquiry(selectedDate, phone, 'phone')
-              }}
-            />
-          </label>
-        </div>
-      )}
-
       {selectedSlot && sheet && (
         <section
           ref={sheetRef}
           className="slot-sheet"
           tabIndex={-1}
           aria-labelledby="slot-sheet-title"
-          aria-busy={lookupBusy || actionBusy}
+          aria-busy={actionBusy}
         >
           <p className="sheet-kicker">
             {checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')
@@ -645,62 +546,19 @@ function BookingPanel({ authUser = null, onAuthUser }) {
               <p className="sheet-kicker">Deneme antrenmanı</p>
               <p className="sheet-copy">Bu grup saatinde yer var. İstersen deneme antrenmanına doğrudan kaydolabilirsin.</p>
               <div className="sheet-actions">
-                <button type="button" className="cta" onClick={openTrialForm} disabled={lookupBusy}>
+                <button type="button" className="cta" onClick={openTrialForm} disabled={actionBusy}>
                   Deneme antrenmanına kaydol
                 </button>
-                <button type="button" className="cta ghost" onClick={declineTrial} disabled={lookupBusy}>
+                <button type="button" className="cta ghost" onClick={declineTrial} disabled={actionBusy}>
                   Deneme istemiyorum
                 </button>
               </div>
-              <button
-                type="button"
-                className="text-button sheet-check"
-                onClick={checkTypedPhone}
-                disabled={lookupBusy || actionBusy}
-              >
-                {lookupBusy ? 'Bakılıyor' : 'Kaydı kontrol et'}
-              </button>
             </div>
           )}
 
           {sheet === 'trial-form' && (
             <form className="sheet-block" onSubmit={submitTrial}>
-              <p className="sheet-copy">İsim, soyisim ve telefon kaydedilir. Deneme antrenmanı seçtiğin grup saatine yazılır.</p>
-              <div className="two-col">
-                <label>
-                  İsim
-                  <input
-                    name="given-name"
-                    autoComplete="given-name"
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  Soyisim
-                  <input
-                    name="family-name"
-                    autoComplete="family-name"
-                    value={lastName}
-                    onChange={(event) => setLastName(event.target.value)}
-                    required
-                  />
-                </label>
-              </div>
-              <label>
-                Telefon
-                <input
-                  type="tel"
-                  name="trial-phone"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="05xx xxx xx xx"
-                  value={trialPhone}
-                  onChange={(event) => setTrialPhone(event.target.value)}
-                  required
-                />
-              </label>
+              <p className="sheet-copy">Deneme antrenmanın bu grup saatine yazılacak.</p>
               <div className="sheet-actions">
                 <button type="submit" className="cta" disabled={actionBusy}>
                   {actionBusy ? 'Kaydediliyor' : 'Onayla'}
@@ -824,51 +682,6 @@ function BookingPanel({ authUser = null, onAuthUser }) {
 
       {holdBlock && sheet !== 'credits' && <p className="booking-error">{holdBlock}</p>}
 
-      {registerOpen && !member && !sheet && (
-        <form className="slot-sheet register-card" onSubmit={submitRegistration}>
-          <p className="sheet-kicker">Kayıt ol</p>
-          <p className="sheet-copy">İsim, soyisim ve telefon sisteme kaydedilir.</p>
-          <div className="two-col">
-            <label>
-              İsim
-              <input
-                name="given-name"
-                autoComplete="given-name"
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Soyisim
-              <input
-                name="family-name"
-                autoComplete="family-name"
-                value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                required
-              />
-            </label>
-          </div>
-          <label>
-            Telefon
-            <input
-              type="tel"
-              name="register-phone"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="05xx xxx xx xx"
-              value={phone}
-              onChange={(event) => updatePhone(event.target.value)}
-              required
-            />
-          </label>
-          <button type="submit" className="cta cta-form" disabled={actionBusy}>
-            {actionBusy ? 'Kaydediliyor' : 'Kayıt ol'}
-          </button>
-        </form>
-      )}
-
       {notice && (
         <p className="booking-note" role="status">
           {notice}
@@ -880,7 +693,42 @@ function BookingPanel({ authUser = null, onAuthUser }) {
           )}
         </p>
       )}
-      {error && <p className="booking-error" role="alert">{error}</p>}
+      {error && <p className="field-error" role="alert">{error}</p>}
+
+      {loginPrompt && (
+        <div
+          className="login-modal-backdrop"
+          onMouseDown={() => {
+            clearPendingSlot()
+            setLoginPrompt(false)
+          }}
+        >
+          <div
+            className="login-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="login-prompt-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="login-prompt-title">Bu dersi ayırmak için giriş yap</h2>
+            <div className="sheet-actions">
+              <a ref={loginLinkRef} className="cta cta-primary" href="/hesabim?next=book">
+                Giriş yap / Kayıt ol
+              </a>
+              <button
+                type="button"
+                className="cta ghost"
+                onClick={() => {
+                  clearPendingSlot()
+                  setLoginPrompt(false)
+                }}
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -616,6 +616,64 @@ textarea {
   font-size: 0.92rem;
 }
 
+.field-error {
+  margin: 6px 0 0;
+  color: #ffb4a8;
+  font-size: 0.88rem;
+}
+
+.login-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 14, 12, 0.72);
+}
+
+.login-modal {
+  width: min(440px, 100%);
+  padding: 22px 20px 18px;
+  border: 1px solid rgba(232, 185, 35, 0.38);
+  border-radius: 18px;
+  background: rgba(13, 31, 26, 0.96);
+}
+
+.login-modal h2 {
+  margin: 0 0 16px;
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  text-transform: none;
+}
+
+.kvkk-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 0;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.kvkk-check input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  padding: 0;
+  border-radius: 4px;
+  flex: none;
+}
+
+.email-otp-card h1 {
+  margin: 0 0 12px;
+}
+
 .booking-link {
   color: var(--gold-soft);
   text-decoration: underline;

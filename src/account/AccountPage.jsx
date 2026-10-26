@@ -142,6 +142,19 @@ function AccountPage({ user, onUser }) {
   }, [])
 
   useEffect(() => {
+    if (!user || data?.profile_complete !== true) return undefined
+    let pending = null
+    try {
+      pending = JSON.parse(sessionStorage.getItem('pending_slot') || 'null')
+    } catch {
+      pending = null
+    }
+    if (!pending?.slot_id) return undefined
+    navigate('/#iletisim')
+    return undefined
+  }, [user, data?.profile_complete, navigate])
+
+  useEffect(() => {
     const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         onUser?.(null)
@@ -303,6 +316,7 @@ function AccountPage({ user, onUser }) {
   }
 
   const profile = data?.profile
+  const profileComplete = data?.profile_complete === true
   const pack = data?.package
   const activePackage = pack?.status === 'active'
   const remaining = pack?.credits_remaining ?? 0
@@ -312,14 +326,29 @@ function AccountPage({ user, onUser }) {
 
   return (
     <div className="account-page">
-      <EmailOtpCard visible={!user} scrollOnLink={false} onUser={onUser} />
+      {!user && <EmailOtpCard visible scrollOnLink={false} onUser={onUser} />}
 
-      {!user && (
-        <header className="account-hero">
-          <p className="eyebrow">HESABIM</p>
-          <h1>Hesabım</h1>
-          <p className="account-lead">E-posta kodunla giriş yap. Telefon kimlik değildir.</p>
-        </header>
+      {user && data && !profileComplete && (
+        <EmailOtpCard
+          visible={false}
+          showProfile
+          profile={profile}
+          onUser={onUser}
+          onProfileDone={() => {
+            notifyMemberChanged()
+            let pending = null
+            try {
+              pending = JSON.parse(sessionStorage.getItem('pending_slot') || 'null')
+            } catch {
+              pending = null
+            }
+            if (pending?.slot_id) {
+              navigate('/#iletisim')
+              return
+            }
+            reload()
+          }}
+        />
       )}
 
       {user && status === 'loading' && !data && <AccountSkeleton />}
@@ -332,7 +361,7 @@ function AccountPage({ user, onUser }) {
         </div>
       )}
 
-      {user && data && (
+      {user && data && profileComplete && (
         <>
           <header className="account-hero">
             <div>

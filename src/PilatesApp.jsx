@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import AccountPage from './account/AccountPage.jsx'
 import AdminGate from './admin/AdminGate.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
@@ -72,11 +72,15 @@ const pricing = [
 
 const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman', 'TRX']
 
+function AdminRoute() {
+  const navigate = useNavigate()
+  return <AdminGate onClose={() => navigate('/')} />
+}
+
 function PilatesApp() {
   const location = useLocation()
   const onHome = location.pathname === '/'
   const [activeDiscipline, setActiveDiscipline] = useState(disciplines[0])
-  const [adminOpen, setAdminOpen] = useState(false)
   const [authUser, setAuthUser] = useState(null)
   const [hash, setHash] = useState(() => window.location.hash)
   const { data: dashboard } = useMemberDashboard(authUser)
@@ -123,9 +127,6 @@ function PilatesApp() {
 
         <div className="header-actions">
           {accountChip('account-chip account-chip--bar')}
-          <button type="button" className="admin-entry" onClick={() => setAdminOpen(true)}>
-            Admin Girişi
-          </button>
           <a className="header-button" href={instagramUrl} target="_blank" rel="noreferrer">
             Instagram’a yaz
           </a>
@@ -134,6 +135,7 @@ function PilatesApp() {
 
       <main>
         <Routes>
+          <Route path="/admin" element={<AdminRoute />} />
           <Route path="/hesabim" element={<AccountPage user={authUser} onUser={setAuthUser} />} />
           <Route path="/" element={<>
         {checkoutOpen && <PaymentPanel />}
@@ -210,7 +212,7 @@ function PilatesApp() {
             <h2>Dersini ayır.</h2>
           </div>
 
-          <BookingPanel authUser={authUser} onAuthUser={setAuthUser} />
+          <BookingPanel authUser={authUser} />
         </section>
 
         <section className="trainer section" id="egitmen">
@@ -302,13 +304,9 @@ function PilatesApp() {
           <a href="tel:+905302071908">Telefon: 0530 207 19 08</a>
           <a href={mapsUrl} target="_blank" rel="noreferrer">Google Maps’te görüntüle</a>
           <a href={instagramUrl} target="_blank" rel="noreferrer">Instagram: @alsancak_pilates</a>
-          <button type="button" className="admin-entry" onClick={() => setAdminOpen(true)}>
-            Admin Girişi
-          </button>
+          <a className="admin-entry" href="/admin">Admin Girişi</a>
         </div>
       </footer>
-
-      {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
 
       <a className="floating-whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="WhatsApp ile deneme seansı hakkında bilgi alın">
         <span aria-hidden="true">WA</span>
