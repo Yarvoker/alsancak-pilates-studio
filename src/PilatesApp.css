@@ -1267,6 +1267,58 @@ textarea {
 }
 }
 
+.member-summary {
+  margin: 0 0 16px;
+  color: var(--cream);
+  font-size: 0.98rem;
+}
+
+.member-summary a,
+.booking-note a {
+  color: var(--gold-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--cream);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.account-chip--nav {
+  display: none;
+}
+
+.account-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e8b923;
+  color: #102620;
+  font-size: 0.68rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .account-chip--bar {
+    display: none;
+  }
+
+  .account-chip--nav {
+    display: inline-flex;
+  }
+}
+
 .header-actions {
   display: flex;
   align-items: center;

@@ -1,0 +1,331 @@
+.account-page {
+  width: min(720px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: 28px 0 80px;
+  font-family: 'Jost', 'Segoe UI', sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.account-page h1,
+.account-page h2 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--cream);
+}
+
+.account-page h1 {
+  font-size: clamp(2.4rem, 8vw, 3.6rem);
+}
+
+.account-page h2 {
+  font-size: clamp(1.6rem, 4vw, 2rem);
+}
+
+.account-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.account-lead,
+.account-meta,
+.account-package-name {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.account-card {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid rgba(232, 185, 35, 0.28);
+  border-radius: 22px;
+  background: rgba(16, 38, 32, 0.78);
+}
+
+.account-card-head,
+.account-actions,
+.account-row,
+.account-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-card-head {
+  margin-bottom: 8px;
+}
+
+.account-credits {
+  margin: 10px 0 12px;
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(2.2rem, 8vw, 3.2rem);
+  line-height: 0.95;
+}
+
+.account-credits--empty {
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+}
+
+.account-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(242, 238, 231, 0.16);
+  overflow: hidden;
+}
+
+.account-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #102620;
+  font-family: 'Jost', 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.account-badge--text {
+  background: #102620;
+  color: var(--cream);
+  border: 1px solid rgba(242, 238, 231, 0.35);
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: 100%;
+}
+
+.account-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-row {
+  align-items: flex-start;
+  padding: 12px 0;
+  border-top: 1px solid rgba(242, 238, 231, 0.12);
+}
+
+.account-row strong,
+.account-row small {
+  display: block;
+}
+
+.account-row strong {
+  color: var(--cream);
+  font-weight: 500;
+}
+
+.account-row small,
+.account-lock small {
+  margin-top: 4px;
+  color: var(--cream);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.account-credit {
+  color: var(--cream);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.account-button,
+.account-page .account-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #102620;
+  font-family: 'Jost', 'Segoe UI', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.account-button--quiet,
+.account-page .account-chip {
+  background: transparent;
+  border-color: rgba(232, 185, 35, 0.55);
+  color: var(--cream);
+}
+
+.account-page .account-chip.active {
+  background: var(--gold);
+  color: #102620;
+}
+
+.account-page .cancel-locked,
+.account-page .cancel-locked:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  background: transparent;
+  border: 1px solid rgba(242, 238, 231, 0.55);
+  color: var(--cream);
+}
+
+.account-button:disabled:not(.cancel-locked) {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.account-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.account-month {
+  min-width: min(100%, 180px);
+}
+
+.account-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.account-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.account-stats article {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(13, 31, 26, 0.55);
+}
+
+.account-stats strong {
+  display: block;
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.account-stats span {
+  display: block;
+  margin-top: 6px;
+  color: var(--cream);
+  font-size: 0.82rem;
+}
+
+.account-empty {
+  margin-top: 12px;
+}
+
+.account-empty p {
+  margin-bottom: 12px;
+  color: var(--cream);
+}
+
+.account-actions {
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.account-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.account-feedback {
+  margin-top: 16px;
+}
+
+.account-skeleton {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.account-skeleton span {
+  display: block;
+  height: 84px;
+  border-radius: 22px;
+  background: linear-gradient(90deg, rgba(242, 238, 231, 0.06), rgba(232, 185, 35, 0.16), rgba(242, 238, 231, 0.06));
+  background-size: 200% 100%;
+  animation: account-shimmer 1.2s ease infinite;
+}
+
+@keyframes account-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.account-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(6, 14, 12, 0.72);
+}
+
+.account-modal {
+  width: min(440px, 100%);
+  padding: 22px 18px;
+  border: 1px solid rgba(232, 185, 35, 0.4);
+  border-radius: 22px;
+  background: #102620;
+  color: var(--cream);
+}
+
+.account-modal p {
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+
+.account-page :focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .account-hero,
+  .account-row,
+  .account-row-meta,
+  .account-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .account-button,
+  .account-page .account-chip {
+    max-width: 100%;
+  }
+
+  .account-stats {
+    grid-template-columns: 1fr;
+  }
+}

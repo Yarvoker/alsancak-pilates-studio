@@ -4,6 +4,8 @@ import {
   adminMessage,
   assignPackage,
   fetchAdminClients,
+  fetchAdminMemberDashboard,
+  fetchDeletionRequests,
   openStudioWeek,
   fetchBookingInquiries,
   fetchLessonHistory,
@@ -81,6 +83,8 @@ function AdminGate({ onClose }) {
   const [inquiries, setInquiries] = useState([])
   const [linkRequests, setLinkRequests] = useState([])
   const [lessons, setLessons] = useState([])
+  const [deletions, setDeletions] = useState([])
+  const [detail, setDetail] = useState(null)
   const [memberId, setMemberId] = useState('')
   const [kind, setKind] = useState('pack_8')
   const [credits, setCredits] = useState('1')
@@ -97,16 +101,32 @@ function AdminGate({ onClose }) {
   }, [session, onClose])
 
   async function loadDesk(active) {
-    const [nextClients, nextInquiries, nextLessons, nextLinks] = await Promise.all([
+    const [nextClients, nextInquiries, nextLessons, nextLinks, nextDeletions] = await Promise.all([
       fetchAdminClients(active.username, active.password),
       fetchBookingInquiries(active.username, active.password),
       fetchLessonHistory(active.username, active.password),
       fetchLinkRequests(active.username, active.password),
+      fetchDeletionRequests(active.username, active.password),
     ])
     setClients(nextClients)
     setInquiries(nextInquiries)
     setLessons(nextLessons)
     setLinkRequests(nextLinks)
+    setDeletions(nextDeletions)
+  }
+
+  async function openClient(client) {
+    if (!session) return
+    setBusy(true)
+    setError('')
+    try {
+      const next = await fetchAdminMemberDashboard(session.username, session.password, client.id)
+      setDetail({ id: client.id, data: next })
+    } catch (detailError) {
+      setError(adminMessage(detailError))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function decideLink(request, decision) {
@@ -325,6 +345,7 @@ function AdminGate({ onClose }) {
                   <th>Telefon</th>
                   <th>Aktif paket</th>
                   <th>Kalan kredi</th>
+                  <th>Hesap</th>
                 </tr>
               </thead>
               <tbody>
@@ -344,9 +365,75 @@ function AdminGate({ onClose }) {
                         ))}
                       </td>
                       <td>{client.credits_remaining}</td>
+                      <td>
+                        <div className="attendance-actions">
+                          <button type="button" onClick={() => openClient(client)} disabled={busy}>
+                            Detay
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {detail?.data && (
+          <div className="admin-detail">
+            <h3>Hesap özeti</h3>
+            <p>
+              {(detail.data.profile?.first_name || '')} {(detail.data.profile?.last_name || '')}
+              {' · '}
+              {detail.data.profile?.email || '—'}
+              {' · '}
+              {detail.data.profile?.phone_masked || '—'}
+            </p>
+            <p>
+              Paket: {detail.data.package?.status === 'active' ? detail.data.package?.name : 'Aktif paketin yok'}
+              {' · '}
+              {detail.data.package?.credits_remaining ?? 0} kredi
+            </p>
+            <p>
+              Katılım {detail.data.stats?.total_attended ?? 0}
+              {' · bu ay '}
+              {detail.data.stats?.this_month_attended ?? 0}
+              {' · seri '}
+              {detail.data.stats?.streak_weeks ?? 0}
+            </p>
+            <p>Yaklaşan: {(detail.data.upcoming ?? []).length}</p>
+            <button type="button" className="text-button" onClick={() => setDetail(null)}>Kapat</button>
+          </div>
+        )}
+      </section>
+
+      <section className="admin-block">
+        <h2>Silme talepleri</h2>
+        <p className="sheet-copy">Bekleyen talepler listelenir. Üye kaydı buradan silinmez.</p>
+        {deletions.length === 0 ? (
+          <p className="sheet-copy">Bekleyen silme talebi yok.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ad</th>
+                  <th>E-posta</th>
+                  <th>Telefon</th>
+                  <th>Zaman</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deletions.map((request) => (
+                  <tr key={request.id}>
+                    <td>{request.full_name || '—'}</td>
+                    <td>{request.email || '—'}</td>
+                    <td>{request.phone || '—'}</td>
+                    <td>{formatStudioWhen(request.created_at)}</td>
+                    <td>{request.status}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

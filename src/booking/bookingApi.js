@@ -19,6 +19,7 @@ const KNOWN_MESSAGES = [
   'Slot bulunamadı',
   'Geçersiz tarih aralığı',
   'İsim ve soyisim gerekli',
+  'isim ve soyisim gerekli',
   'Deneme antrenmanı yalnız grup dersine yazılır',
   'Paket seçeneği geçersiz',
   'Paket talebi için kayıtlı üyelik gerekli',

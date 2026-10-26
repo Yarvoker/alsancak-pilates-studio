@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   bookSession,
-  cancelReservation,
   claimMemberPhone,
   fetchBookableSlots,
   fetchMemberState,
@@ -10,8 +9,10 @@ import {
   registerMember,
   registerTrialLesson,
 } from './bookingApi.js'
+import { notifyMemberChanged } from './dashboardApi.js'
+import EmailOtpCard from './EmailOtpCard.jsx'
+import MemberSummary from './MemberSummary.jsx'
 import { normalizePhone } from './phone.js'
-import { supabase } from './supabaseClient.js'
 import {
   PACKAGE_OPTIONS,
   creditsOnDate,
@@ -19,15 +20,12 @@ import {
   occupancyLabel,
   packageLead,
   packageOption,
-  packageSessionLabel,
   packageSessionType,
   saveCheckout,
   sheetFor,
   validPersonName,
 } from './sheetFlow.js'
 import {
-  cancellationEffect,
-  capacityFor,
   formatStudioDate,
   formatStudioWhen,
   istanbulDateTime,
@@ -38,127 +36,12 @@ import {
   studioDatesForWeek,
 } from './slotRules.js'
 
-const SESSION_LABEL = {
-  private: 'Özel',
-  group: 'Grup',
-}
-
 const initialClock = Date.now()
 
 try {
   sessionStorage.removeItem('alsancak-booking-phone')
 } catch {
   // Private browsing can reject storage. Auth still lives in the Supabase session.
-}
-
-function validEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
-}
-
-const AUTH_URL_KEYS = [
-  'access_token',
-  'refresh_token',
-  'type',
-  'error',
-  'error_code',
-  'error_description',
-  'expires_in',
-  'expires_at',
-  'token_type',
-  'provider_token',
-  'provider_refresh_token',
-]
-
-function hashParamsOf(hash) {
-  const raw = String(hash || '').replace(/^#/, '')
-  if (!raw || !raw.includes('=')) return new URLSearchParams()
-  return new URLSearchParams(raw)
-}
-
-function urlCarriesAuth() {
-  const search = new URLSearchParams(window.location.search)
-  const hashParams = hashParamsOf(window.location.hash)
-  return AUTH_URL_KEYS.some((key) => search.has(key) || hashParams.has(key))
-}
-
-function linkErrorCopy(errorCode, errorText) {
-  const code = String(errorCode || '').toLowerCase()
-  const text = String(errorText || '').toLowerCase()
-  if (
-    code === 'otp_expired'
-    || code === 'access_denied'
-    || text.includes('otp_expired')
-    || text.includes('access_denied')
-  ) {
-    return 'Link süresi doldu, yeni kod iste'
-  }
-  return ''
-}
-
-function stripAuthFromUrl() {
-  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
-  const url = new URL(window.location.href)
-  for (const key of AUTH_URL_KEYS) url.searchParams.delete(key)
-
-  const raw = window.location.hash.replace(/^#/, '')
-  let nextHash = ''
-  if (raw && !raw.includes('=')) {
-    nextHash = AUTH_URL_KEYS.includes(raw) ? '' : `#${raw}`
-  } else if (raw) {
-    const params = new URLSearchParams(raw)
-    for (const key of AUTH_URL_KEYS) params.delete(key)
-    const kept = params.toString()
-    nextHash = kept ? `#${kept}` : ''
-  }
-
-  const search = url.searchParams.toString()
-  const next = `${url.pathname}${search ? `?${search}` : ''}${nextHash}`
-  if (next === current) return
-  window.history.replaceState(window.history.state, '', next)
-  window.dispatchEvent(new HashChangeEvent('hashchange'))
-}
-
-function retryAfterSeconds(error) {
-  const sources = [
-    error?.retryAfter,
-    error?.retry_after,
-    error?.headers?.['retry-after'],
-    error?.headers?.get?.('retry-after'),
-  ]
-  for (const source of sources) {
-    const parsed = Number.parseInt(String(source ?? ''), 10)
-    if (Number.isFinite(parsed) && parsed > 0) return parsed
-  }
-  const blob = `${error?.message || ''} ${error?.details || ''} ${error?.error_description || ''}`
-  const timed = blob.match(/(\d+)\s*(?:seconds?|secs?|saniye|sn)\b/i)
-  if (timed) return Number(timed[1])
-  return 60
-}
-
-function mapAuthError(error, phase) {
-  const status = Number(error?.status || 0)
-  const code = String(error?.code || error?.error_code || '').toLowerCase()
-  const message = String(error?.message || '')
-  const text = `${message} ${code}`.toLowerCase()
-  const rateLimited = status === 429
-    || code === 'over_email_send_rate_limit'
-    || text.includes('over_email_send_rate_limit')
-    || text.includes('email rate limit')
-    || text.includes('rate limit')
-
-  if (rateLimited) {
-    return `Çok fazla deneme, ${retryAfterSeconds(error)} sn sonra tekrar dene`
-  }
-  if (phase === 'verify') return 'Kod hatalı veya süresi geçmiş.'
-  if (text.includes('not authorized') || text.includes('email_address_not_authorized')) {
-    return 'Bu e-posta adresine doğrulama gönderilemedi.'
-  }
-  if (phase === 'send') return 'Kod gönderilemedi. Lütfen tekrar dene.'
-  return 'Doğrulama tamamlanamadı. Lütfen tekrar dene.'
-}
-
-function codeDigits(value) {
-  return String(value || '').replace(/\D/g, '').slice(0, 6)
 }
 
 function dayChipLabel(isoDate) {
@@ -185,15 +68,10 @@ function groupSeatOpen(slot) {
     && (slot.booked_count ?? 0) < (slot.capacity ?? 0)
 }
 
-function BookingPanel() {
+function BookingPanel({ authUser = null, onAuthUser }) {
   const dates = useMemo(() => studioDatesForWeek(), [])
   const [phone, setPhone] = useState('')
-  const [authUser, setAuthUser] = useState(null)
-  const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
-  const [resendIn, setResendIn] = useState(0)
-  const [authBusy, setAuthBusy] = useState(false)
+  const [authPrompt, setAuthPrompt] = useState(false)
   const [memberState, setMemberState] = useState(null)
   const [selectedDate, setSelectedDate] = useState(dates[0])
   const [slots, setSlots] = useState([])
@@ -204,7 +82,6 @@ function BookingPanel() {
   const [lookupBusy, setLookupBusy] = useState(false)
   const [slotsBusy, setSlotsBusy] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
-  const [confirmBurnId, setConfirmBurnId] = useState('')
   const [clock, setClock] = useState(initialClock)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -216,11 +93,12 @@ function BookingPanel() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const [trialSlotId, setTrialSlotId] = useState('')
   const sheetRef = useRef(null)
-  const emailRef = useRef(null)
   const lookupSeq = useRef(0)
+  const authUserRef = useRef(authUser)
+  const pendingSlotRef = useRef(null)
+  authUserRef.current = authUser
 
   const member = memberState?.member ?? null
-  const reservations = memberState?.reservations ?? []
   const times = slotStarts(selectedDate)
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
   const sessionType = selectedSlot?.session_type ?? null
@@ -250,93 +128,35 @@ function BookingPanel() {
   }, [selectedDate])
 
   useEffect(() => {
-    let active = true
-
-    async function refreshCard() {
-      try {
-        const next = await fetchMemberState()
-        if (active) setMemberState(next)
-      } catch (lookupError) {
-        if (active) setError(messageOf(lookupError))
-      }
-    }
-
-    function syncMember(event, session) {
-      if (!active) return
-      if (event === 'SIGNED_OUT') {
-        setAuthUser(null)
-        setMemberState(null)
-        return
-      }
-      if (event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED' && event !== 'INITIAL_SESSION') return
-      const user = session?.user ?? null
-      setAuthUser(user)
-      if (!user) {
-        setMemberState(null)
-        return
-      }
-      window.setTimeout(() => {
-        if (active) refreshCard()
-      }, 0)
-    }
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(syncMember)
-
-    const search = new URLSearchParams(window.location.search)
-    const hashParams = hashParamsOf(window.location.hash)
-    const errorCode = search.get('error_code') || hashParams.get('error_code') || ''
-    const errorText = [
-      search.get('error'),
-      hashParams.get('error'),
-      search.get('error_description'),
-      hashParams.get('error_description'),
-    ].filter(Boolean).join(' ')
-    const hadTokens = ['access_token', 'refresh_token'].some((key) => search.has(key) || hashParams.has(key))
-    const shouldClean = urlCarriesAuth()
-    const expiredLink = linkErrorCopy(errorCode, errorText)
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      const user = data.session?.user ?? null
-      if (shouldClean) {
-        stripAuthFromUrl()
-        if (expiredLink) setError(expiredLink)
-        else if (hadTokens && user) {
-          setAuthUser(user)
-          document.getElementById('iletisim')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      }
-      if (!user) {
-        setAuthUser(null)
-        setMemberState(null)
-      }
-    }).catch(() => {
-      if (active && shouldClean) stripAuthFromUrl()
-    })
-
-    return () => {
-      active = false
-      subscription.subscription.unsubscribe()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (resendIn <= 0) return undefined
-    const timer = window.setTimeout(() => setResendIn((value) => value - 1), 1000)
-    return () => window.clearTimeout(timer)
-  }, [resendIn])
-
-  useEffect(() => {
     if (!sheet) return undefined
     sheetRef.current?.focus()
     return undefined
   }, [sheet, selectedSlotId])
 
   function requireAuth() {
-    if (authUser) return true
+    if (authUserRef.current) return true
+    setAuthPrompt(true)
     setError('Devam etmek için e-posta kodunu doğrula.')
-    emailRef.current?.focus()
     return false
+  }
+
+  function handleUser(user) {
+    const previousId = authUserRef.current?.id ?? null
+    const nextId = user?.id ?? null
+    authUserRef.current = user
+    onAuthUser?.(user)
+    if (!nextId) {
+      setMemberState(null)
+      return
+    }
+    if (!previousId && pendingSlotRef.current) {
+      const slot = pendingSlotRef.current
+      pendingSlotRef.current = null
+      setAuthPrompt(false)
+      setError('')
+      setSheet('checking')
+      identify(slot.session_type)
+    }
   }
 
   async function refreshMember() {
@@ -373,74 +193,6 @@ function BookingPanel() {
 
   function updatePhone(value) {
     setPhone(value)
-    setNotice('')
-    setError('')
-    setConfirmBurnId('')
-  }
-
-  async function sendCode() {
-    const nextEmail = email.trim().toLowerCase()
-    if (!validEmail(nextEmail)) {
-      setError('E-posta geçersiz.')
-      return
-    }
-
-    setAuthBusy(true)
-    setError('')
-    setNotice('')
-    const { error: sendError } = await supabase.auth.signInWithOtp({
-      email: nextEmail,
-      options: { shouldCreateUser: true },
-    })
-    setAuthBusy(false)
-
-    if (sendError) {
-      setError(mapAuthError(sendError, 'send'))
-      return
-    }
-
-    setEmail(nextEmail)
-    setCodeSent(true)
-    setCode('')
-    setResendIn(60)
-    setNotice('Doğrulama kodu e-postana gönderildi.')
-  }
-
-  async function verifyCode() {
-    const token = code.replace(/\D/g, '')
-    if (token.length !== 6) {
-      setError('Kod hatalı veya süresi geçmiş.')
-      return
-    }
-
-    setAuthBusy(true)
-    setError('')
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token,
-      type: 'email',
-    })
-    setAuthBusy(false)
-
-    if (verifyError) {
-      setError(mapAuthError(verifyError, 'verify'))
-      return
-    }
-
-    setCode('')
-    setCodeSent(false)
-    setResendIn(0)
-    setNotice('')
-  }
-
-  async function signOutMember() {
-    await supabase.auth.signOut()
-    setMemberState(null)
-    setCode('')
-    setCodeSent(false)
-    setResendIn(0)
-    setRegisterOpen(false)
-    setSheet(null)
     setNotice('')
     setError('')
   }
@@ -483,15 +235,24 @@ function BookingPanel() {
     }
   }
 
+  function checkTypedPhone() {
+    lookupMember()
+  }
+
   async function onSlotClick(slot) {
     setSelectedSlotId(slot.id)
     setNotice('')
     setError('')
-    setConfirmBurnId('')
 
     if (String(phone).trim()) rememberInquiry(selectedDate, phone, 'phone')
-    if (!requireAuth()) return
+    if (!authUserRef.current) {
+      pendingSlotRef.current = slot
+      setAuthPrompt(true)
+      setError('Devam etmek için e-posta kodunu doğrula.')
+      return
+    }
 
+    pendingSlotRef.current = null
     setSheet('checking')
     await identify(slot.session_type)
   }
@@ -651,6 +412,7 @@ function BookingPanel() {
       setRegisterOpen(false)
       setFirstName('')
       setLastName('')
+      notifyMemberChanged()
       setNotice('Deneme antrenmanın bu grup saatine kaydedildi.')
     } catch (trialError) {
       const text = messageOf(trialError)
@@ -721,6 +483,7 @@ function BookingPanel() {
       setSheet(null)
       await refreshMember()
       await reloadSlots()
+      notifyMemberChanged()
       setNotice('Yerin tutuldu.')
     } catch (bookError) {
       const text = messageOf(bookError)
@@ -730,34 +493,6 @@ function BookingPanel() {
       } else {
         setError(text)
       }
-    } finally {
-      setActionBusy(false)
-    }
-  }
-
-  async function cancelSeat(reservation) {
-    if (!requireAuth()) return
-
-    const effect = cancellationEffect(Date.now(), reservation.starts_at)
-    if (effect === 'burn' && confirmBurnId !== reservation.id) {
-      setConfirmBurnId(reservation.id)
-      return
-    }
-
-    const creditsBefore = member?.credits_remaining ?? 0
-    setActionBusy(true)
-    setError('')
-    setNotice('')
-
-    try {
-      await cancelReservation(reservation.id)
-      const next = await refreshMember()
-      await reloadSlots()
-      setConfirmBurnId('')
-      const refunded = (next.member?.credits_remaining ?? 0) > creditsBefore
-      setNotice(refunded ? 'İptal edildi. Kredi iade edildi.' : 'İptal edildi. Kredi yandı.')
-    } catch (cancelError) {
-      setError(messageOf(cancelError))
     } finally {
       setActionBusy(false)
     }
@@ -790,8 +525,12 @@ function BookingPanel() {
     })
     : []
 
+  const savedNotice = notice === 'Yerin tutuldu.'
+    || notice === 'Deneme antrenmanın bu grup saatine kaydedildi.'
+
   return (
     <div className="booking-form">
+      <MemberSummary user={authUser} />
       <div className="day-row" role="listbox" aria-label="Gün seç">
         {dates.map((isoDate) => (
           <button
@@ -802,7 +541,6 @@ function BookingPanel() {
               if (isoDate === selectedDate) return
               setSelectedDate(isoDate)
               setSelectedSlotId('')
-              setConfirmBurnId('')
               setSlotsBusy(true)
               rememberInquiry(isoDate, phone, 'day')
               if (checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')) {
@@ -850,75 +588,16 @@ function BookingPanel() {
         })}
       </div>
 
-      <section className="member-auth" aria-label="Üye girişi">
-        {authUser ? (
-          <div className="auth-bar">
-            <p className="auth-email">{authUser.email}</p>
-            <button type="button" className="text-button" onClick={signOutMember} disabled={authBusy}>
-              Çıkış
-            </button>
-          </div>
-        ) : (
-          <div className="field-row">
-            <p className="booking-note">Mailindeki 6 haneli kodu gir, linke tıklamana gerek yok</p>
-            <label>
-              E-posta
-              <input
-                ref={emailRef}
-                type="email"
-                name="email"
-                autoComplete="email"
-                inputMode="email"
-                placeholder="ornek@eposta.com"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value)
-                  setError('')
-                }}
-              />
-            </label>
-            <button
-              type="button"
-              className="cta cta-form"
-              onClick={sendCode}
-              disabled={authBusy || resendIn > 0}
-            >
-              {codeSent && resendIn === 0 ? 'Tekrar gönder' : 'Kod gönder'}
-            </button>
-            {resendIn > 0 && (
-              <p className="booking-note">Tekrar göndermek için {resendIn} sn</p>
-            )}
-            <label>
-              Doğrulama kodu
-              <input
-                name="email-code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                placeholder="6 haneli kod"
-                value={code}
-                onChange={(event) => {
-                  setCode(codeDigits(event.target.value))
-                  setError('')
-                }}
-                onPaste={(event) => {
-                  event.preventDefault()
-                  setCode(codeDigits(event.clipboardData?.getData('text') ?? ''))
-                  setError('')
-                }}
-              />
-            </label>
-            <button
-              type="button"
-              className="cta cta-form"
-              onClick={verifyCode}
-              disabled={authBusy || code.length !== 6}
-            >
-              {authBusy ? 'Doğrulanıyor' : 'Doğrula'}
-            </button>
-          </div>
-        )}
-      </section>
+      <EmailOtpCard
+        visible={!authUser && authPrompt}
+        scrollOnLink
+        onUser={handleUser}
+        onLinkError={(message) => {
+          if (!message) return
+          setError(message)
+          setAuthPrompt(true)
+        }}
+      />
 
       {sheet !== 'trial-form' && (
         <div className="field-row booking-phone">
@@ -1143,81 +822,7 @@ function BookingPanel() {
         </section>
       )}
 
-      {member && (
-        <div className="member-card">
-          <p className="member-name">{member.full_name}</p>
-          <p className="member-meta">
-            {usableCredits} kredi
-            {' '}
-            {sessionType === 'private' ? 'özel ders' : sessionType === 'group' ? 'grup dersi' : 'bu tarih'}
-            {' '}
-            için kullanılabilir
-          </p>
-          <ul className="package-list">
-            {member.packages.map((item) => {
-              const use = packageSessionLabel(item.session_type)
-              return (
-                <li key={item.id || `${item.name}-${item.starts_on}`}>
-                  {item.name}
-                  {' · '}
-                  {item.credits_remaining}/{item.credits_total} kredi
-                  {use ? ` · ${use}` : ''}
-                  {' · başlangıç '}
-                  {formatStudioDate(item.starts_on)}
-                </li>
-              )
-            })}
-          </ul>
-
-          {reservations.length > 0 && (
-            <div className="reservation-list">
-              <p className="member-meta">Yaklaşan dersler</p>
-              {reservations.map((reservation) => {
-                const effect = cancellationEffect(clock, reservation.starts_at)
-                const burning = effect === 'burn'
-                const armed = confirmBurnId === reservation.id
-                let label = 'İptal et, kredi iade edilir'
-                if (burning && armed) label = 'Kredi yanacak, onayla'
-                else if (burning) label = 'İptal et, kredi yanar'
-
-                return (
-                  <div key={reservation.id} className="reservation-item">
-                    <div>
-                      <strong>{formatStudioWhen(reservation.starts_at)}</strong>
-                      <small>
-                        {SESSION_LABEL[reservation.session_type] || 'Ders'}
-                        {' · '}
-                        {reservation.session_type ? `${capacityFor(reservation.session_type)} kişilik` : ''}
-                      </small>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => cancelSeat(reservation)}
-                      disabled={actionBusy}
-                    >
-                      {label}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       {holdBlock && sheet !== 'credits' && <p className="booking-error">{holdBlock}</p>}
-
-      {!selectedSlot && (
-        <button
-          type="button"
-          className="cta cta-form"
-          onClick={lookupMember}
-          disabled={lookupBusy || actionBusy}
-        >
-          {lookupBusy ? 'Bakılıyor' : 'Derslerimi göster'}
-        </button>
-      )}
 
       {registerOpen && !member && !sheet && (
         <form className="slot-sheet register-card" onSubmit={submitRegistration}>
@@ -1264,7 +869,17 @@ function BookingPanel() {
         </form>
       )}
 
-      {notice && <p className="booking-note" role="status">{notice}</p>}
+      {notice && (
+        <p className="booking-note" role="status">
+          {notice}
+          {savedNotice && (
+            <>
+              {' '}
+              <a href="/hesabim">Hesabım'da gör</a>
+            </>
+          )}
+        </p>
+      )}
       {error && <p className="booking-error" role="alert">{error}</p>}
     </div>
   )

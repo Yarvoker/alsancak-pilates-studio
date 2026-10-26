@@ -1,14 +1,32 @@
 import { useEffect, useState } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
+import AccountPage from './account/AccountPage.jsx'
 import AdminGate from './admin/AdminGate.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
+import EmailOtpCard from './booking/EmailOtpCard.jsx'
 import PaymentPanel from './booking/PaymentPanel.jsx'
+import { useMemberDashboard } from './booking/useMemberDashboard.js'
 import './PilatesApp.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
 const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seansı%20hakkında%20bilgi%20almak%20istiyorum'
 const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=Dr.+Mustafa+Enver+Bey+Cad.+K%C3%BClt%C3%BCr+Apt.+No%3A30%2F7+Alsancak+%C4%B0zmir'
 
-const navItems = ['Dersler', 'Eğitmen', 'Galeri', 'Fiyatlar']
+const navItems = [
+  ['Dersler', 'dersler'],
+  ['Eğitmen', 'egitmen'],
+  ['Galeri', 'galeri'],
+  ['Fiyatlar', 'fiyatlar'],
+]
+
+function accountInitials(profile, user) {
+  const first = String(profile?.first_name || '').trim()
+  const last = String(profile?.last_name || '').trim()
+  const letters = `${first.charAt(0)}${last.charAt(0)}`.toLocaleUpperCase('tr-TR')
+  if (letters.trim()) return letters
+  const email = profile?.email || user?.email || ''
+  return (email.charAt(0) || '•').toLocaleUpperCase('tr-TR')
+}
 
 const disciplineButtons = [
   'Mat & Reformer',
@@ -55,10 +73,15 @@ const pricing = [
 const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman', 'TRX']
 
 function PilatesApp() {
+  const location = useLocation()
+  const onHome = location.pathname === '/'
   const [activeDiscipline, setActiveDiscipline] = useState(disciplines[0])
   const [adminOpen, setAdminOpen] = useState(false)
+  const [authUser, setAuthUser] = useState(null)
   const [hash, setHash] = useState(() => window.location.hash)
-  const checkoutOpen = hash === '#odeme'
+  const { data: dashboard } = useMemberDashboard(authUser)
+  const checkoutOpen = onHome && hash === '#odeme'
+  const initials = accountInitials(dashboard?.profile, authUser)
 
   useEffect(() => {
     const sync = () => setHash(window.location.hash)
@@ -66,10 +89,22 @@ function PilatesApp() {
     return () => window.removeEventListener('hashchange', sync)
   }, [])
 
+  const accountChip = (className) => (
+    <a className={className} href="/hesabim">
+      {authUser ? (
+        <>
+          <span className="account-avatar" aria-hidden="true">{initials}</span>
+          Hesabım
+        </>
+      ) : 'Giriş yap'}
+    </a>
+  )
+
   return (
     <div className="page-shell">
+      <EmailOtpCard visible={false} scrollOnLink={false} onUser={setAuthUser} />
       <header className="topbar">
-        <a className="brand" href="#ana-sayfa" aria-label="Alsancak Pilates Studio ana sayfa">
+        <a className="brand" href={onHome ? '#ana-sayfa' : '/#ana-sayfa'} aria-label="Alsancak Pilates Studio ana sayfa">
           <img className="brand-mark" src="/images/alsancak-pilates-logo.jpg" alt="Alsancak Pilates Studio logo" />
           <span className="brand-text">
             <strong>Alsancak</strong>
@@ -78,14 +113,16 @@ function PilatesApp() {
         </a>
 
         <nav className="main-nav" aria-label="Ana menü">
-          {navItems.map((item) => (
-            <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}>
-              {item}
+          {navItems.map(([label, id]) => (
+            <a key={id} href={onHome ? `#${id}` : `/#${id}`}>
+              {label}
             </a>
           ))}
+          {accountChip('account-chip account-chip--nav')}
         </nav>
 
         <div className="header-actions">
+          {accountChip('account-chip account-chip--bar')}
           <button type="button" className="admin-entry" onClick={() => setAdminOpen(true)}>
             Admin Girişi
           </button>
@@ -96,6 +133,9 @@ function PilatesApp() {
       </header>
 
       <main>
+        <Routes>
+          <Route path="/hesabim" element={<AccountPage user={authUser} onUser={setAuthUser} />} />
+          <Route path="/" element={<>
         {checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
@@ -170,7 +210,7 @@ function PilatesApp() {
             <h2>Dersini ayır.</h2>
           </div>
 
-          <BookingPanel />
+          <BookingPanel authUser={authUser} onAuthUser={setAuthUser} />
         </section>
 
         <section className="trainer section" id="egitmen">
@@ -248,6 +288,8 @@ function PilatesApp() {
           </div>
         </section>
         </>)}
+          </>} />
+        </Routes>
       </main>
 
       <footer className="site-footer">

@@ -103,6 +103,25 @@ export async function decideLinkRequest(username, password, requestId, decision)
   return data
 }
 
+export async function fetchAdminMemberDashboard(username, password, memberId) {
+  const { data, error } = await supabase.rpc('admin_member_dashboard', {
+    p_username: username,
+    p_password: password,
+    p_member_id: memberId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function fetchDeletionRequests(username, password) {
+  const { data, error } = await supabase.rpc('admin_list_deletion_requests', {
+    p_username: username,
+    p_password: password,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function assignPackage(username, password, memberId, kind, startsOn, credits = null) {
   const { data, error } = await supabase.rpc('admin_assign_package', {
     p_username: username,
