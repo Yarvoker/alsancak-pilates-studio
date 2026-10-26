@@ -567,8 +567,12 @@ textarea {
 
 .time-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 8px;
+}
+
+.booking-phone {
+  margin-top: 18px;
 }
 
 .time-slot {
@@ -904,6 +908,10 @@ textarea {
   .three-up,
   .pricing-grid {
     grid-template-columns: 1fr;
+  }
+
+  .time-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .hero {

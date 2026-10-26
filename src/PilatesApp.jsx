@@ -191,19 +191,12 @@ function PilatesApp() {
         </section>
 
         <section className="booking section" id="iletisim">
-          <div className="booking-layout">
-            <div className="booking-copy">
-              <p className="eyebrow">REZERVASYON</p>
-              <h2>Dersini ayır.</h2>
-              <p>
-                Üye telefonunla açık derslerden yer tut. Paket başlangıcından önce rezervasyon açılmaz.
-                Özel ders 2, grup dersi 14 kişiliktir; dolunca kapanır. İptal, dersten 24 saatten önceyse krediyi iade eder.
-                Daha geç iptalde veya derse gelinmezse kredi yanar.
-              </p>
-            </div>
-
-            <BookingPanel whatsappUrl={whatsappUrl} />
+          <div className="section-heading">
+            <p className="eyebrow">REZERVASYON</p>
+            <h2>Dersini ayır.</h2>
           </div>
+
+          <BookingPanel whatsappUrl={whatsappUrl} />
         </section>
 
         <section className="trainer section" id="egitmen">

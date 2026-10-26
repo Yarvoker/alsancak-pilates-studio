@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   bookSession,
   cancelReservation,
@@ -59,8 +59,7 @@ function BookingPanel({ whatsappUrl }) {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [lookupBusy, setLookupBusy] = useState(false)
-  const [slotsBusy, setSlotsBusy] = useState(false)
-  const [slotsReady, setSlotsReady] = useState(false)
+  const [slotsBusy, setSlotsBusy] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
   const [confirmBurnId, setConfirmBurnId] = useState('')
   const [clock, setClock] = useState(initialClock)
@@ -71,6 +70,28 @@ function BookingPanel({ whatsappUrl }) {
   const usableCredits = creditsOnDate(member?.packages, selectedDate)
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
 
+  useEffect(() => {
+    let ignore = false
+
+    fetchBookableSlots(selectedDate, selectedDate)
+      .then((rows) => {
+        if (ignore) return
+        setSlots(rows)
+        setClock(Date.now())
+      })
+      .catch((lookupError) => {
+        if (!ignore) setError(messageOf(lookupError))
+      })
+      .finally(() => {
+        if (ignore) return
+        setSlotsBusy(false)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [selectedDate])
+
   async function refreshMember(activePhone) {
     const next = await fetchMemberState(activePhone)
     setMemberState(next)
@@ -78,30 +99,9 @@ function BookingPanel({ whatsappUrl }) {
     return next
   }
 
-  async function loadSlots(isoDate) {
-    setSlotsBusy(true)
-    setSlotsReady(false)
-    setSlots([])
-    setError('')
-
-    try {
-      const rows = await fetchBookableSlots(isoDate, isoDate)
-      setSlots(rows)
-      setClock(Date.now())
-    } catch (lookupError) {
-      setError(messageOf(lookupError))
-    } finally {
-      setSlotsBusy(false)
-      setSlotsReady(true)
-    }
-  }
-
   function updatePhone(value) {
     setPhone(value)
     setMemberState(null)
-    setSlots([])
-    setSlotsReady(false)
-    setSelectedSlotId('')
     setNotice('')
     setError('')
     setConfirmBurnId('')
@@ -122,8 +122,6 @@ function BookingPanel({ whatsappUrl }) {
       const next = await refreshMember(normalized)
       if (!next.member) {
         setNotice('Bu telefonla kayıtlı üyelik yok. Paket stüdyoda tanımlanır.')
-      } else {
-        await loadSlots(selectedDate)
       }
     } catch (lookupError) {
       setError(messageOf(lookupError))
@@ -148,7 +146,12 @@ function BookingPanel({ whatsappUrl }) {
       setSlots(rows)
       setNotice('Yerin tutuldu.')
     } catch (bookError) {
-      setError(messageOf(bookError))
+      const text = messageOf(bookError)
+      if (text === 'Üye bulunamadı') {
+        setNotice('Bu telefonla kayıtlı üyelik yok. Paket stüdyoda tanımlanır.')
+      } else {
+        setError(text)
+      }
     } finally {
       setActionBusy(false)
     }
@@ -194,7 +197,54 @@ function BookingPanel({ whatsappUrl }) {
 
   return (
     <div className="booking-form">
-      <div className="field-row">
+      <div className="day-row" role="listbox" aria-label="Gün seç">
+        {dates.map((isoDate) => (
+          <button
+            key={isoDate}
+            type="button"
+            className={isoDate === selectedDate ? 'day-chip active' : 'day-chip'}
+            onClick={() => {
+              if (isoDate === selectedDate) return
+              setSelectedDate(isoDate)
+              setSelectedSlotId('')
+              setConfirmBurnId('')
+              setSlotsBusy(true)
+            }}
+          >
+            {dayChipLabel(isoDate)}
+          </button>
+        ))}
+      </div>
+
+      <div className="time-grid" aria-busy={slotsBusy}>
+        {times.map((time) => {
+          const slot = slotOnDate(slots, selectedDate, time)
+          const past = isPastSlot(selectedDate, time, clock)
+          const open = Boolean(slot) && slot.status === 'open' && !isSlotFull(slot.session_type, slot.booked_count)
+          const full = Boolean(slot) && (slot.status === 'full' || isSlotFull(slot.session_type, slot.booked_count))
+          let detail = 'Kapalı'
+          if (past) detail = 'Geçti'
+          else if (open) {
+            const left = capacityFor(slot.session_type) - slot.booked_count
+            detail = `${SESSION_LABEL[slot.session_type]} · ${left} yer`
+          } else if (full) detail = 'Dolu'
+
+          return (
+            <button
+              key={time}
+              type="button"
+              className={slot?.id === selectedSlotId ? 'time-slot active' : 'time-slot'}
+              disabled={!open || past || actionBusy}
+              onClick={() => setSelectedSlotId(slot.id)}
+            >
+              <strong>{time}</strong>
+              <small>{detail}</small>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="field-row booking-phone">
         <label>
           Telefon
           <input
@@ -210,10 +260,6 @@ function BookingPanel({ whatsappUrl }) {
         </label>
       </div>
 
-      <button type="button" className="cta cta-form" onClick={lookupMember} disabled={lookupBusy}>
-        {lookupBusy ? 'Bakılıyor' : 'Üyeliğimi getir'}
-      </button>
-
       {member && (
         <div className="member-card">
           <p className="member-name">{member.full_name}</p>
@@ -225,70 +271,6 @@ function BookingPanel({ whatsappUrl }) {
               </li>
             ))}
           </ul>
-
-          <div className="day-row" role="listbox" aria-label="Gün seç">
-            {dates.map((isoDate) => (
-              <button
-                key={isoDate}
-                type="button"
-                className={isoDate === selectedDate ? 'day-chip active' : 'day-chip'}
-                onClick={() => {
-                  setSelectedDate(isoDate)
-                  setSelectedSlotId('')
-                  setConfirmBurnId('')
-                  loadSlots(isoDate)
-                }}
-              >
-                {dayChipLabel(isoDate)}
-              </button>
-            ))}
-          </div>
-
-          {slotsReady && !times.some((time) => {
-            const slot = slotOnDate(slots, selectedDate, time)
-            return slot && slot.status === 'open' && !isPastSlot(selectedDate, time, clock) && !isSlotFull(slot.session_type, slot.booked_count)
-          }) && (
-            <p className="booking-note">Bu günde açık ders yok.</p>
-          )}
-
-          <div className="time-grid" aria-busy={slotsBusy}>
-            {times.map((time) => {
-              const slot = slotOnDate(slots, selectedDate, time)
-              const past = isPastSlot(selectedDate, time, clock)
-              const open = Boolean(slot) && slot.status === 'open' && !isSlotFull(slot.session_type, slot.booked_count)
-              const full = Boolean(slot) && (slot.status === 'full' || isSlotFull(slot.session_type, slot.booked_count))
-              let detail = 'Kapalı'
-              if (past) detail = 'Geçti'
-              else if (open) {
-                const left = capacityFor(slot.session_type) - slot.booked_count
-                detail = `${SESSION_LABEL[slot.session_type]} · ${left} yer`
-              } else if (full) detail = 'Dolu'
-
-              return (
-                <button
-                  key={time}
-                  type="button"
-                  className={slot?.id === selectedSlotId ? 'time-slot active' : 'time-slot'}
-                  disabled={!open || past || actionBusy}
-                  onClick={() => setSelectedSlotId(slot.id)}
-                >
-                  <strong>{time}</strong>
-                  <small>{detail}</small>
-                </button>
-              )
-            })}
-          </div>
-
-          {holdBlock && <p className="booking-error">{holdBlock}</p>}
-
-          <button
-            type="button"
-            className="cta cta-form"
-            onClick={holdSeat}
-            disabled={!selectedSlot || Boolean(holdBlock) || actionBusy}
-          >
-            {actionBusy ? 'Kaydediliyor' : 'Yerini tut'}
-          </button>
 
           {reservations.length > 0 && (
             <div className="reservation-list">
@@ -326,6 +308,17 @@ function BookingPanel({ whatsappUrl }) {
           )}
         </div>
       )}
+
+      {holdBlock && <p className="booking-error">{holdBlock}</p>}
+
+      <button
+        type="button"
+        className="cta cta-form"
+        onClick={selectedSlot ? holdSeat : lookupMember}
+        disabled={lookupBusy || actionBusy || (Boolean(selectedSlot) && Boolean(holdBlock))}
+      >
+        {actionBusy ? 'Kaydediliyor' : lookupBusy ? 'Bakılıyor' : selectedSlot ? 'Yerini tut' : 'Derslerimi göster'}
+      </button>
 
       {!member && notice && (
         <p className="booking-note">
