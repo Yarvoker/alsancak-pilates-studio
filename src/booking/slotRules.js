@@ -103,6 +103,20 @@ export function upcomingStudioDates(count = 14, now = new Date()) {
   return dates
 }
 
+export function studioDatesForWeek(now = new Date()) {
+  const start = todayIso(now)
+  const end = addIsoDays(start, 6)
+  const dates = []
+  let cursor = start
+
+  while (cursor <= end) {
+    if (openingMinutes(cursor) !== null) dates.push(cursor)
+    cursor = addIsoDays(cursor, 1)
+  }
+
+  return dates
+}
+
 export function istanbulDateTime(isoTimestamp) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: TIME_ZONE,

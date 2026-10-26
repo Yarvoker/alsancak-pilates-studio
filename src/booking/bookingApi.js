@@ -26,6 +26,15 @@ export function messageOf(error) {
     || 'İşlem tamamlanamadı. Lütfen tekrar dene.'
 }
 
+export async function recordBookingInquiry(selectedOn, phone, source) {
+  const { error } = await supabase.rpc('record_booking_inquiry', {
+    p_selected_on: selectedOn,
+    p_phone: phone || null,
+    p_source: source,
+  })
+  if (error) throw error
+}
+
 export async function fetchMemberState(phone) {
   const { data, error } = await supabase.rpc('member_booking_state', { p_phone: phone })
   if (error) throw error

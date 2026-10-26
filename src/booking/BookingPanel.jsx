@@ -5,6 +5,7 @@ import {
   fetchBookableSlots,
   fetchMemberState,
   messageOf,
+  recordBookingInquiry,
   registerTrialLesson,
   requestMemberPackage,
 } from './bookingApi.js'
@@ -30,7 +31,7 @@ import {
   isPastSlot,
   isSlotFull,
   slotStarts,
-  upcomingStudioDates,
+  studioDatesForWeek,
 } from './slotRules.js'
 
 const SESSION_LABEL = {
@@ -76,7 +77,7 @@ function slotOnDate(slots, isoDate, time) {
 }
 
 function BookingPanel({ whatsappUrl }) {
-  const dates = useMemo(() => upcomingStudioDates(14), [])
+  const dates = useMemo(() => studioDatesForWeek(), [])
   const [phone, setPhone] = useState(() => readSessionPhone() ?? '')
   const [memberState, setMemberState] = useState(null)
   const [selectedDate, setSelectedDate] = useState(dates[0])
@@ -166,6 +167,12 @@ function BookingPanel({ whatsappUrl }) {
     return rows
   }
 
+  function rememberInquiry(isoDate, phoneValue, source) {
+    const raw = String(phoneValue ?? '').trim().slice(0, 40)
+    if (!isoDate && !raw) return
+    recordBookingInquiry(isoDate, raw, source).catch(() => {})
+  }
+
   function updatePhone(value) {
     setPhone(value)
     setMemberState(null)
@@ -215,6 +222,8 @@ function BookingPanel({ whatsappUrl }) {
     setError('')
     setConfirmBurnId('')
 
+    if (String(phone).trim()) rememberInquiry(selectedDate, phone, 'phone')
+
     const normalized = normalizePhone(phone) || readSessionPhone()
     if (!normalized) {
       setSheet('trial-offer')
@@ -233,10 +242,12 @@ function BookingPanel({ whatsappUrl }) {
       return
     }
     setNotice('')
+    rememberInquiry(selectedDate, phone, 'phone')
     await identify(normalized)
   }
 
   async function lookupMember() {
+    rememberInquiry(selectedDate, phone, 'phone')
     const normalized = normalizePhone(phone)
     if (!normalized) {
       setError('Telefon numarası geçersiz')
@@ -428,6 +439,7 @@ function BookingPanel({ whatsappUrl }) {
               setSentKind('')
               setConfirmBurnId('')
               setSlotsBusy(true)
+              rememberInquiry(isoDate, phone, 'day')
             }}
           >
             {dayChipLabel(isoDate)}
@@ -473,6 +485,9 @@ function BookingPanel({ whatsappUrl }) {
               placeholder="05xx xxx xx xx"
               value={phone}
               onChange={(event) => updatePhone(event.target.value)}
+              onBlur={() => {
+                if (String(phone).trim()) rememberInquiry(selectedDate, phone, 'phone')
+              }}
             />
           </label>
         </div>

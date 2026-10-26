@@ -4,6 +4,7 @@ import {
   adminMessage,
   assignPackage,
   fetchAdminClients,
+  fetchBookingInquiries,
   fetchLessonHistory,
   markAttendance,
 } from './adminApi.js'
@@ -18,6 +19,11 @@ const PACKAGE_OPTIONS = [
 const SESSION_LABEL = {
   private: 'Özel',
   group: 'Grup',
+}
+
+const INQUIRY_LABEL = {
+  day: 'Gün seçimi',
+  phone: 'Telefon kutusu',
 }
 
 function splitName(fullName) {
@@ -69,6 +75,7 @@ function AdminGate({ onClose }) {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [clients, setClients] = useState([])
+  const [inquiries, setInquiries] = useState([])
   const [lessons, setLessons] = useState([])
   const [memberId, setMemberId] = useState('')
   const [kind, setKind] = useState('pack_8')
@@ -86,11 +93,13 @@ function AdminGate({ onClose }) {
   }, [session, onClose])
 
   async function loadDesk(active) {
-    const [nextClients, nextLessons] = await Promise.all([
+    const [nextClients, nextInquiries, nextLessons] = await Promise.all([
       fetchAdminClients(active.username, active.password),
+      fetchBookingInquiries(active.username, active.password),
       fetchLessonHistory(active.username, active.password),
     ])
     setClients(nextClients)
+    setInquiries(nextInquiries)
     setLessons(nextLessons)
   }
 
@@ -287,6 +296,44 @@ function AdminGate({ onClose }) {
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="admin-block">
+        <h2>Gün ve telefon kayıtları</h2>
+        <p className="sheet-copy">
+          Rezervasyon ekranında seçilen gün ve yazılan telefon burada durur.
+        </p>
+        {inquiries.length === 0 ? (
+          <p className="sheet-copy">Kayıt yok.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Zaman</th>
+                  <th>Seçilen gün</th>
+                  <th>Telefon</th>
+                  <th>Kayıt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inquiries.map((item) => (
+                  <tr key={item.id}>
+                    <td>{formatStudioWhen(item.created_at)}</td>
+                    <td>{item.selected_on ? formatStudioDate(item.selected_on) : '—'}</td>
+                    <td>
+                      {item.phone_raw || '—'}
+                      {item.phone_normalized && item.phone_normalized !== item.phone_raw && (
+                        <small className="admin-sub">{item.phone_normalized}</small>
+                      )}
+                    </td>
+                    <td>{INQUIRY_LABEL[item.source] || 'Kayıt'}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

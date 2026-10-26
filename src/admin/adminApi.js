@@ -39,6 +39,15 @@ export async function fetchAdminClients(username, password) {
   return data ?? []
 }
 
+export async function fetchBookingInquiries(username, password) {
+  const { data, error } = await supabase.rpc('admin_list_booking_inquiries', {
+    p_username: username,
+    p_password: password,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function fetchLessonHistory(username, password) {
   const { data, error } = await supabase.rpc('admin_lesson_history', {
     p_username: username,
