@@ -6,6 +6,7 @@ import {
   fetchMemberState,
   messageOf,
   recordBookingInquiry,
+  registerMember,
   registerTrialLesson,
 } from './bookingApi.js'
 import { normalizePhone } from './phone.js'
@@ -106,6 +107,8 @@ function BookingPanel() {
   const [startDate, setStartDate] = useState('')
   const [startSlots, setStartSlots] = useState([])
   const [startBusy, setStartBusy] = useState(false)
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [trialSlotId, setTrialSlotId] = useState('')
   const sheetRef = useRef(null)
   const lookupSeq = useRef(0)
 
@@ -190,6 +193,7 @@ function BookingPanel() {
     setError('')
     setConfirmBurnId('')
     writeSessionPhone(null)
+    if (registerOpen) return
     if (selectedSlotId && !['trial-form', 'packages', 'start-time'].includes(sheet)) {
       setSheet(groupSeatOpen(selectedSlot) ? 'trial-offer' : 'packages')
     }
@@ -270,7 +274,12 @@ function BookingPanel() {
     try {
       const next = await refreshMember(normalized)
       writeSessionPhone(normalized)
-      if (!next.member) setNotice('Bu telefonla kayıtlı üyelik yok.')
+      if (!next.member) {
+        setRegisterOpen(true)
+        setNotice('Bu telefonla kayıtlı üyelik yok.')
+      } else {
+        setRegisterOpen(false)
+      }
     } catch (lookupError) {
       setError(messageOf(lookupError))
     } finally {
@@ -307,9 +316,67 @@ function BookingPanel() {
     setSheet('trial-form')
   }
 
+  function selectTrial() {
+    setCheckoutKind('trial')
+    setTrialSlotId('')
+    setError('')
+    setNotice('')
+    pickStartDay(selectedDate)
+  }
+
+  function chooseHour(item) {
+    if (checkoutKind !== 'trial') {
+      continueToPayment(item.time)
+      return
+    }
+    setTrialSlotId(item.slot.id)
+    setTrialPhone(phone)
+    setError('')
+    setNotice('')
+    setSheet('trial-form')
+  }
+
+  async function submitRegistration(event) {
+    event.preventDefault()
+    const normalized = normalizePhone(phone)
+    if (!validPersonName(firstName) || !validPersonName(lastName)) {
+      setError('İsim ve soyisim gerekli')
+      return
+    }
+    if (!normalized) {
+      setError('Telefon numarası geçersiz')
+      return
+    }
+
+    setActionBusy(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await registerMember({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: normalized,
+      })
+      setPhone(normalized)
+      writeSessionPhone(normalized)
+      await refreshMember(normalized)
+      setRegisterOpen(false)
+      setNotice('Kaydın oluşturuldu.')
+    } catch (registerError) {
+      setError(messageOf(registerError))
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
   async function submitTrial(event) {
     event.preventDefault()
-    if (!selectedSlot || !groupSeatOpen(selectedSlot)) {
+    const bookedSlot = startSlots.find((item) => item.id === trialSlotId) || selectedSlot
+    const groupOpen = bookedSlot?.session_type === 'group'
+      && bookedSlot.status === 'open'
+      && (bookedSlot.booked_count ?? 0) < (bookedSlot.capacity ?? 0)
+    if (!groupOpen) {
       setError('Deneme antrenmanı yalnız boş grup saatine yazılır')
       return
     }
@@ -333,7 +400,7 @@ function BookingPanel() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: normalized,
-        slotId: selectedSlot.id,
+        slotId: bookedSlot.id,
       })
       setPhone(normalized)
       writeSessionPhone(normalized)
@@ -341,6 +408,8 @@ function BookingPanel() {
       await reloadSlots()
       setSheet(null)
       setSelectedSlotId('')
+      setTrialSlotId('')
+      setRegisterOpen(false)
       setFirstName('')
       setLastName('')
       setNotice('Deneme antrenmanın bu grup saatine kaydedildi.')
@@ -468,8 +537,10 @@ function BookingPanel() {
     holdBlock = 'Kullanılabilir ders kredisi yok'
   }
 
-  const checkoutOption = packageOption(checkoutKind)
-  const sessionForPackage = packageSessionType(checkoutKind)
+  const checkoutOption = checkoutKind === 'trial'
+    ? { kind: 'trial', title: 'Deneme antrenmanı' }
+    : packageOption(checkoutKind)
+  const sessionForPackage = checkoutKind === 'trial' ? 'group' : packageSessionType(checkoutKind)
   const openHours = startDate
     ? slotStarts(startDate).flatMap((time) => {
       if (isPastSlot(startDate, time, clock)) return []
@@ -478,7 +549,7 @@ function BookingPanel() {
         return parts.date === startDate && parts.time === time && item.session_type === sessionForPackage
       })
       if (!slot || slot.status !== 'open' || (slot.booked_count ?? 0) >= (slot.capacity ?? 0)) return []
-      return [{ time, detail: occupancyLabel(slot, false) }]
+      return [{ time, slot, detail: occupancyLabel(slot, false) }]
     })
     : []
 
@@ -494,10 +565,14 @@ function BookingPanel() {
               if (isoDate === selectedDate) return
               setSelectedDate(isoDate)
               setSelectedSlotId('')
-              setSheet(null)
               setConfirmBurnId('')
               setSlotsBusy(true)
               rememberInquiry(isoDate, phone, 'day')
+              if (checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')) {
+                pickStartDay(isoDate)
+                return
+              }
+              setSheet(null)
             }}
           >
             {dayChipLabel(isoDate)}
@@ -566,8 +641,16 @@ function BookingPanel() {
           aria-labelledby="slot-sheet-title"
           aria-busy={lookupBusy || actionBusy}
         >
-          <p className="sheet-kicker">{occupancyLabel(selectedSlot, false)}</p>
-          <h3 id="slot-sheet-title">{formatStudioWhen(selectedSlot.starts_at)}</h3>
+          <p className="sheet-kicker">
+            {checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')
+              ? 'Deneme antrenmanı'
+              : occupancyLabel(selectedSlot, false)}
+          </p>
+          <h3 id="slot-sheet-title">
+            {checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')
+              ? formatStudioDate(startDate || selectedDate)
+              : formatStudioWhen(selectedSlot.starts_at)}
+          </h3>
 
           {sheet === 'checking' && <p className="sheet-copy">Kayıt kontrol ediliyor.</p>}
 
@@ -596,7 +679,7 @@ function BookingPanel() {
 
           {sheet === 'trial-form' && (
             <form className="sheet-block" onSubmit={submitTrial}>
-              <p className="sheet-copy">Deneme antrenmanı bu grup saatine yazılır. Adını ve telefonunu yaz.</p>
+              <p className="sheet-copy">İsim, soyisim ve telefon kaydedilir. Deneme antrenmanı seçtiğin grup saatine yazılır.</p>
               <div className="two-col">
                 <label>
                   İsim
@@ -634,9 +717,14 @@ function BookingPanel() {
               </label>
               <div className="sheet-actions">
                 <button type="submit" className="cta" disabled={actionBusy}>
-                  {actionBusy ? 'Kaydediliyor' : 'Deneme antrenmanını kaydet'}
+                  {actionBusy ? 'Kaydediliyor' : 'Onayla'}
                 </button>
-                <button type="button" className="cta ghost" onClick={() => setSheet('trial-offer')} disabled={actionBusy}>
+                <button
+                  type="button"
+                  className="cta ghost"
+                  onClick={() => setSheet(checkoutKind === 'trial' ? 'start-time' : 'trial-offer')}
+                  disabled={actionBusy}
+                >
                   Vazgeç
                 </button>
               </div>
@@ -662,6 +750,15 @@ function BookingPanel() {
                     </span>
                   </button>
                 ))}
+                {!member && (
+                  <button type="button" className="choice-card" onClick={selectTrial}>
+                    <span className="choice-index">01</span>
+                    <span>
+                      <strong>Deneme antrenmanı</strong>
+                      <small>Grup dersi, ücretsiz</small>
+                    </span>
+                  </button>
+                )}
               </div>
               <button type="button" className="text-button sheet-check" onClick={closeSheet}>
                 Kapat
@@ -672,7 +769,9 @@ function BookingPanel() {
           {sheet === 'start-time' && checkoutOption && (
             <div className="sheet-block">
               <p className="sheet-copy">
-                {checkoutOption.title}, {startDate ? formatStudioDate(startDate) : ''}. Saatini seç.
+                {checkoutOption.title}, {startDate ? formatStudioDate(startDate) : ''}.
+                {' '}
+                {checkoutKind === 'trial' ? 'Günü yukarıdan değiştirip saati onayla.' : 'Saatini seç.'}
               </p>
               {startBusy && <p className="sheet-copy">Saatler yükleniyor.</p>}
               {!startBusy && openHours.length === 0 && (
@@ -689,12 +788,12 @@ function BookingPanel() {
                       key={item.time}
                       type="button"
                       className="choice-card"
-                      onClick={() => continueToPayment(item.time)}
+                      onClick={() => chooseHour(item)}
                     >
                       <span className="choice-index">{item.time}</span>
                       <span>
                         <strong>{item.detail}</strong>
-                        <small>Ödemeye geç</small>
+                        <small>{checkoutKind === 'trial' ? 'Onayla' : 'Ödemeye geç'}</small>
                       </span>
                     </button>
                   ))}
@@ -811,6 +910,51 @@ function BookingPanel() {
         >
           {lookupBusy ? 'Bakılıyor' : 'Derslerimi göster'}
         </button>
+      )}
+
+      {registerOpen && !member && !sheet && (
+        <form className="slot-sheet register-card" onSubmit={submitRegistration}>
+          <p className="sheet-kicker">Kayıt ol</p>
+          <p className="sheet-copy">İsim, soyisim ve telefon sisteme kaydedilir.</p>
+          <div className="two-col">
+            <label>
+              İsim
+              <input
+                name="given-name"
+                autoComplete="given-name"
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Soyisim
+              <input
+                name="family-name"
+                autoComplete="family-name"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <label>
+            Telefon
+            <input
+              type="tel"
+              name="register-phone"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="05xx xxx xx xx"
+              value={phone}
+              onChange={(event) => updatePhone(event.target.value)}
+              required
+            />
+          </label>
+          <button type="submit" className="cta cta-form" disabled={actionBusy}>
+            {actionBusy ? 'Kaydediliyor' : 'Kayıt ol'}
+          </button>
+        </form>
       )}
 
       {notice && <p className="booking-note" role="status">{notice}</p>}

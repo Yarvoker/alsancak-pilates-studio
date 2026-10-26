@@ -16,6 +16,7 @@ const KNOWN_MESSAGES = [
   'Slot bulunamadı',
   'Geçersiz tarih aralığı',
   'İsim ve soyisim gerekli',
+  'Deneme antrenmanı yalnız grup dersine yazılır',
   'Paket seçeneği geçersiz',
   'Paket talebi için kayıtlı üyelik gerekli',
 ]
@@ -63,6 +64,16 @@ export async function cancelReservation(phone, reservationId) {
   const { data, error } = await supabase.rpc('cancel_reservation_for_phone', {
     p_phone: phone,
     p_reservation_id: reservationId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function registerMember({ firstName, lastName, phone }) {
+  const { data, error } = await supabase.rpc('register_member', {
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_phone: phone,
   })
   if (error) throw error
   return data

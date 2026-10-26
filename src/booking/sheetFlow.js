@@ -17,7 +17,7 @@ export const PACKAGE_OPTIONS = [
     kind: 'private_single',
     index: 'ÖZ',
     title: 'Özel antrenman',
-    detail: 'Özel ders, 2 kişi',
+    detail: '2 kişi',
   },
 ]
 
