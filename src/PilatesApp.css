@@ -1084,21 +1084,6 @@ textarea {
   color: var(--gold-soft);
 }
 
-.header-social {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 120%, #feda77, #f58529 28%, #dd2a7b 58%, #8134af 82%);
-  color: #fff;
-}
-
-.header-social svg {
-  width: 22px;
-  height: 22px;
-}
-
 .contact-dock {
   position: fixed;
   right: 20px;
@@ -1133,9 +1118,7 @@ textarea {
 }
 
 .contact-dock-link:hover,
-.contact-dock-link:focus-visible,
-.header-social:hover,
-.header-social:focus-visible {
+.contact-dock-link:focus-visible {
   transform: translateY(-2px);
 }
 

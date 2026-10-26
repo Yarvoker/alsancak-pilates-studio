@@ -143,9 +143,6 @@ function PilatesApp() {
 
         <div className="header-actions">
           {accountChip('account-chip account-chip--bar')}
-          <a className="header-social" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram’da aç">
-            <InstagramIcon />
-          </a>
         </div>
       </header>
 
