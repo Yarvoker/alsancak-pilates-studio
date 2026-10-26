@@ -69,8 +69,8 @@ function dayChipLabel(isoDate) {
   }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
-function slotOnDate(slots, isoDate, time) {
-  return slots.find((slot) => {
+function slotsAt(slots, isoDate, time) {
+  return slots.filter((slot) => {
     const parts = istanbulDateTime(slot.starts_at)
     return parts.date === isoDate && parts.time === time
   })
@@ -449,26 +449,33 @@ function BookingPanel({ whatsappUrl }) {
 
       <div className="time-grid" aria-busy={slotsBusy}>
         {times.map((time) => {
-          const slot = slotOnDate(slots, selectedDate, time)
+          const pair = slotsAt(slots, selectedDate, time)
           const past = isPastSlot(selectedDate, time, clock)
-          const bookable = Boolean(slot) && (slot.status === 'open' || slot.status === 'full')
-          const open = bookable
-            && slot.status === 'open'
-            && Boolean(slot.session_type)
-            && !isSlotFull(slot.session_type, slot.booked_count)
-          const detail = occupancyLabel(bookable ? slot : null, past)
 
           return (
-            <button
-              key={time}
-              type="button"
-              className={slot?.id === selectedSlotId ? 'time-slot active' : 'time-slot'}
-              disabled={!open || past || actionBusy}
-              onClick={() => onSlotClick(slot)}
-            >
+            <div key={time} className="time-slot" role="group" aria-label={time}>
               <strong>{time}</strong>
-              <small>{detail}</small>
-            </button>
+              {past ? <small>Geçti</small> : ['private', 'group'].map((kind) => {
+                const slot = pair.find((item) => item.session_type === kind)
+                const bookable = Boolean(slot) && (slot.status === 'open' || slot.status === 'full')
+                const open = bookable
+                  && slot.status === 'open'
+                  && !isSlotFull(slot.session_type, slot.booked_count)
+                const detail = occupancyLabel(bookable ? slot : null, false)
+
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={slot?.id === selectedSlotId ? 'time-kind active' : 'time-kind'}
+                    disabled={!open || actionBusy}
+                    onClick={() => onSlotClick(slot)}
+                  >
+                    {detail}
+                  </button>
+                )
+              })}
+            </div>
           )
         })}
       </div>

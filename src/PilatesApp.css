@@ -504,6 +504,7 @@ textarea {
 .cta:disabled,
 .cta-form:disabled,
 .time-slot:disabled,
+.time-kind:disabled,
 .text-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -580,8 +581,8 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  min-height: 64px;
+  gap: 2px;
+  min-height: 86px;
   padding: 10px 12px;
   border-radius: 14px;
   text-align: left;
@@ -590,6 +591,24 @@ textarea {
 .time-slot strong {
   font-size: 0.95rem;
   letter-spacing: -0.03em;
+}
+
+.time-kind {
+  width: 100%;
+  margin: 0;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.78;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.time-kind.active {
+  color: var(--gold);
+  opacity: 1;
 }
 
 .time-slot small,

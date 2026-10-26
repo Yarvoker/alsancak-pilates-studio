@@ -104,16 +104,15 @@ function AdminGate({ onClose }) {
     setLessons(nextLessons)
   }
 
-  async function openWeek(sessionType) {
+  async function openWeek() {
     if (!session) return
     setBusy(true)
     setError('')
     setNotice('')
 
     try {
-      const result = await openStudioWeek(session.username, session.password, sessionType)
-      const label = sessionType === 'private' ? 'özel ders, 2 kişilik' : 'grup dersi, 14 kişilik'
-      setNotice(`${result.opened} saat ${label} olarak açıldı.`)
+      const result = await openStudioWeek(session.username, session.password, 'both')
+      setNotice(`${result.hours} saatte özel ders ve grup dersi birlikte açık.`)
     } catch (openError) {
       setError(adminMessage(openError))
     } finally {
@@ -281,14 +280,11 @@ function AdminGate({ onClose }) {
       <section className="admin-block">
         <h2>Haftalık dersler</h2>
         <p className="sheet-copy">
-          Bugünden itibaren bir haftalık saatleri açar. Özel ders 2 kişi, grup dersi 14 kişi alır.
+          Bugünden itibaren bir haftalık her saatte özel ders (2 kişi) ve grup dersi (14 kişi) birlikte açılır.
         </p>
         <div className="sheet-actions">
-          <button type="button" className="cta" disabled={busy} onClick={() => openWeek('private')}>
-            Özel ders, 2 kişi
-          </button>
-          <button type="button" className="cta ghost" disabled={busy} onClick={() => openWeek('group')}>
-            Grup dersi, 14 kişi
+          <button type="button" className="cta" disabled={busy} onClick={openWeek}>
+            Özel ve grup dersini aç
           </button>
         </div>
       </section>
