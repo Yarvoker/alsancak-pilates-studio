@@ -10,8 +10,9 @@ import {
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
 
 const PACKAGE_OPTIONS = [
-  { kind: 'pack_8', label: "8'li Paket" },
-  { kind: 'pack_12', label: "12'li Paket" },
+  { kind: 'pack_8', label: "8'li Pilates Paketi", sessionType: 'group' },
+  { kind: 'pack_12', label: "12'li Pilates Paketi", sessionType: 'group' },
+  { kind: 'private_pack', label: 'Özel Ders Paketi (Private)', sessionType: 'private' },
 ]
 
 const SESSION_LABEL = {
@@ -38,6 +39,26 @@ function packageLabel(client) {
   return client.active_package
 }
 
+function packageRows(client) {
+  if (Array.isArray(client.packages) && client.packages.length > 0) return client.packages
+  if (!client.active_package) return []
+  return [{
+    id: client.id,
+    name: client.active_package,
+    credits_remaining: client.credits_remaining,
+    starts_on: client.package_starts_on,
+    session_type: null,
+  }]
+}
+
+function packageDetail(item) {
+  const parts = [`${item.credits_remaining} kredi`]
+  if (item.session_type === 'private') parts.push('özel ders, 2 kişilik')
+  if (item.session_type === 'group') parts.push('grup dersi')
+  if (item.starts_on && item.starts_on > todayIso()) parts.push(formatStudioDate(item.starts_on))
+  return parts.join(' · ')
+}
+
 function AdminGate({ onClose }) {
   const titleId = useId()
   const usernameRef = useRef(null)
@@ -51,6 +72,7 @@ function AdminGate({ onClose }) {
   const [lessons, setLessons] = useState([])
   const [memberId, setMemberId] = useState('')
   const [kind, setKind] = useState('pack_8')
+  const [credits, setCredits] = useState('1')
   const [startsOn, setStartsOn] = useState(() => todayIso())
 
   useEffect(() => {
@@ -103,15 +125,30 @@ function AdminGate({ onClose }) {
       return
     }
 
+    const option = PACKAGE_OPTIONS.find((item) => item.kind === kind)
+    const creditCount = Number(credits)
+    if (option?.sessionType === 'private' && (!Number.isInteger(creditCount) || creditCount < 1 || creditCount > 60)) {
+      setError('Özel ders kredisi geçersiz')
+      return
+    }
+
     setBusy(true)
     setError('')
     setNotice('')
 
     try {
-      await assignPackage(session.username, session.password, memberId, kind, startsOn)
+      await assignPackage(
+        session.username,
+        session.password,
+        memberId,
+        kind,
+        startsOn,
+        option?.sessionType === 'private' ? creditCount : null,
+      )
       await loadDesk(session)
-      const label = PACKAGE_OPTIONS.find((item) => item.kind === kind)?.label ?? 'Paket'
-      setNotice(`${label} tanımlandı.`)
+      const label = option?.label ?? 'Paket'
+      const creditNote = option?.sessionType === 'private' ? ` ${creditCount} özel ders kredisi yazıldı.` : ''
+      setNotice(`${label} tanımlandı.${creditNote}`)
     } catch (assignError) {
       setError(adminMessage(assignError))
     } finally {
@@ -238,7 +275,14 @@ function AdminGate({ onClose }) {
                       <td>{name.firstName}</td>
                       <td>{name.lastName}</td>
                       <td>{client.phone || '—'}</td>
-                      <td>{packageLabel(client)}</td>
+                      <td>
+                        {packageRows(client).length === 0 ? packageLabel(client) : packageRows(client).map((item) => (
+                          <span className="admin-package" key={item.id || `${item.name}-${item.starts_on}`}>
+                            {item.name}
+                            <small className="admin-sub">{packageDetail(item)}</small>
+                          </span>
+                        ))}
+                      </td>
                       <td>{client.credits_remaining}</td>
                     </tr>
                   )
@@ -251,7 +295,10 @@ function AdminGate({ onClose }) {
 
       <section className="admin-block">
         <h2>Paket tanımla</h2>
-        <form className="admin-assign" onSubmit={submitPackage}>
+        <p className="sheet-copy">
+          Özel ders kredisi yalnızca en fazla 2 kişilik özel ders slotlarında kullanılır. 8'li ve 12'li paketler grup derslerine yazılır.
+        </p>
+        <form className={kind === 'private_pack' ? 'admin-assign has-credits' : 'admin-assign'} onSubmit={submitPackage}>
           <label>
             Danışan
             <select value={memberId} onChange={(event) => setMemberId(event.target.value)} required>
@@ -271,6 +318,21 @@ function AdminGate({ onClose }) {
               ))}
             </select>
           </label>
+          {kind === 'private_pack' && (
+            <label>
+              Kredi
+              <input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                inputMode="numeric"
+                value={credits}
+                onChange={(event) => setCredits(event.target.value)}
+                required
+              />
+            </label>
+          )}
           <label>
             Başlangıç
             <input

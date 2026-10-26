@@ -21,10 +21,27 @@ export const PACKAGE_OPTIONS = [
   },
 ]
 
-export function creditsOnDate(packages, isoDate) {
+export function packageFitsSlot(item, sessionType) {
+  if (!sessionType || !item?.session_type) return true
+  return item.session_type === sessionType
+}
+
+export function creditsOnDate(packages, isoDate, sessionType) {
   return (packages ?? [])
-    .filter((item) => item.starts_on <= isoDate && item.credits_remaining > 0)
+    .filter((item) => (
+      item.starts_on <= isoDate
+      && item.credits_remaining > 0
+      && packageFitsSlot(item, sessionType)
+    ))
     .reduce((sum, item) => sum + item.credits_remaining, 0)
+}
+
+export function futureCreditPackage(packages, isoDate, sessionType) {
+  return (packages ?? []).find((item) => (
+    item.starts_on > isoDate
+    && item.credits_remaining > 0
+    && packageFitsSlot(item, sessionType)
+  )) ?? null
 }
 
 export function validPersonName(value) {
@@ -46,19 +63,21 @@ export function occupancyLabel(slot, past) {
   return `${booked}/${slot.capacity} ${kind}`
 }
 
-export function sheetFor(member, isoDate) {
+export function sheetFor(member, isoDate, sessionType) {
   if (!member) return 'trial-offer'
 
-  const credits = creditsOnDate(member.packages, isoDate)
+  const credits = creditsOnDate(member.packages, isoDate, sessionType)
   if (member.has_taken_lessons) return 'packages'
   if (credits > 0) return 'credits'
-
-  const startsLater = (member.packages ?? []).some(
-    (item) => item.starts_on > isoDate && item.credits_remaining > 0,
-  )
-  if (startsLater) return 'credits'
+  if (futureCreditPackage(member.packages, isoDate, sessionType)) return 'credits'
   if (member.trial_used || member.has_paid_package) return 'packages'
   return 'trial-offer'
+}
+
+export function packageSessionLabel(sessionType) {
+  if (sessionType === 'private') return 'özel ders, 2 kişilik'
+  if (sessionType === 'group') return 'grup dersi'
+  return ''
 }
 
 export function packageLead(member) {

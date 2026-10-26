@@ -1329,9 +1329,21 @@ textarea {
 
 .admin-assign {
   display: grid;
-  grid-template-columns: 1.4fr 0.8fr 0.8fr auto;
+  grid-template-columns: 1.4fr 1.1fr 0.8fr auto;
   gap: 12px;
   align-items: end;
+}
+
+.admin-assign.has-credits {
+  grid-template-columns: 1.3fr 1.15fr 0.55fr 0.75fr auto;
+}
+
+.admin-package {
+  display: block;
+}
+
+.admin-package + .admin-package {
+  margin-top: 8px;
 }
 
 .admin-assign .cta {
@@ -1399,7 +1411,8 @@ textarea {
 }
 
 @media (max-width: 800px) {
-  .admin-assign {
+  .admin-assign,
+  .admin-assign.has-credits {
     grid-template-columns: 1fr;
   }
 

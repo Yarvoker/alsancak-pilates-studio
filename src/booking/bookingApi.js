@@ -6,6 +6,7 @@ const KNOWN_MESSAGES = [
   'Bu telefon birden fazla üyeye ait',
   'Üye bulunamadı',
   'Kullanılabilir ders kredisi yok',
+  'Bu ders türü için kullanılabilir kredi yok',
   'Üyelik başlangıcından önce rezervasyon yapılamaz',
   'Slot dolu',
   'Slot rezervasyona kapalı',

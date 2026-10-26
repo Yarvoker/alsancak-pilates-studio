@@ -9,6 +9,7 @@ const KNOWN_MESSAGES = [
   'Geldi işareti ders başladıktan sonra konur',
   'No-show yalnızca derse 24 saatten az kala işaretlenir',
   'Paket seçeneği geçersiz',
+  'Özel ders kredisi geçersiz',
   'Üye bulunamadı',
   'Paket bulunamadı',
   'Başlangıç tarihi geçmiş olamaz',
@@ -58,13 +59,14 @@ export async function markAttendance(username, password, reservationId, outcome)
   return data
 }
 
-export async function assignPackage(username, password, memberId, kind, startsOn) {
+export async function assignPackage(username, password, memberId, kind, startsOn, credits = null) {
   const { data, error } = await supabase.rpc('admin_assign_package', {
     p_username: username,
     p_password: password,
     p_member_id: memberId,
     p_kind: kind,
     p_starts_on: startsOn,
+    p_credits: credits,
   })
   if (error) throw error
   return data

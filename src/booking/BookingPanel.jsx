@@ -12,9 +12,11 @@ import { normalizePhone } from './phone.js'
 import {
   PACKAGE_OPTIONS,
   creditsOnDate,
+  futureCreditPackage,
   occupancyLabel,
   packageLead,
   packageOption,
+  packageSessionLabel,
   packageWhatsappUrl,
   sheetFor,
   validPersonName,
@@ -98,9 +100,11 @@ function BookingPanel({ whatsappUrl }) {
   const member = memberState?.member ?? null
   const reservations = memberState?.reservations ?? []
   const times = slotStarts(selectedDate)
-  const usableCredits = creditsOnDate(member?.packages, selectedDate)
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
   const sentOption = packageOption(sentKind)
+  const sessionType = selectedSlot?.session_type ?? null
+  const usableCredits = creditsOnDate(member?.packages, selectedDate, sessionType)
+  const datedCredits = creditsOnDate(member?.packages, selectedDate)
 
   useEffect(() => {
     let ignore = false
@@ -180,7 +184,7 @@ function BookingPanel({ whatsappUrl }) {
     setError('')
   }
 
-  async function identify(activePhone) {
+  async function identify(activePhone, sessionType = selectedSlot?.session_type) {
     const seq = lookupSeq.current + 1
     lookupSeq.current = seq
     setLookupBusy(true)
@@ -190,7 +194,7 @@ function BookingPanel({ whatsappUrl }) {
       const next = await refreshMember(activePhone)
       if (lookupSeq.current !== seq) return next
       writeSessionPhone(activePhone)
-      setSheet(sheetFor(next.member, selectedDate))
+      setSheet(sheetFor(next.member, selectedDate, sessionType))
       setNotice(next.member ? '' : 'Bu telefonla kayıtlı üyelik yok.')
       return next
     } catch (lookupError) {
@@ -219,7 +223,7 @@ function BookingPanel({ whatsappUrl }) {
 
     if (!normalizePhone(phone)) setPhone(normalized)
     setSheet('checking')
-    await identify(normalized)
+    await identify(normalized, slot.session_type)
   }
 
   async function checkTypedPhone() {
@@ -389,10 +393,13 @@ function BookingPanel({ whatsappUrl }) {
     }
   }
 
-  const futurePackage = (member?.packages ?? []).find((item) => item.starts_on > selectedDate)
+  const futurePackage = futureCreditPackage(member?.packages, selectedDate, sessionType)
+  const wrongType = Boolean(sessionType) && usableCredits === 0 && datedCredits > 0
   let holdBlock = ''
   if (member && usableCredits === 0 && futurePackage) {
     holdBlock = 'Üyelik başlangıcından önce rezervasyon yapılamaz'
+  } else if (member && wrongType) {
+    holdBlock = 'Bu ders türü için kullanılabilir kredi yok'
   } else if (member && usableCredits === 0 && sheet === 'credits') {
     holdBlock = 'Kullanılabilir ders kredisi yok'
   }
@@ -589,6 +596,7 @@ function BookingPanel({ whatsappUrl }) {
                   Bu dersi kredinle tut
                 </button>
               )}
+              {holdBlock && <p className="booking-error">{holdBlock}</p>}
               {whatsappHref && (
                 <a className="booking-link sheet-link" href={whatsappHref} target="_blank" rel="noreferrer">
                   WhatsApp ile de gönder
@@ -631,13 +639,27 @@ function BookingPanel({ whatsappUrl }) {
       {member && (
         <div className="member-card">
           <p className="member-name">{member.full_name}</p>
-          <p className="member-meta">{usableCredits} kredi bu tarih için kullanılabilir</p>
+          <p className="member-meta">
+            {usableCredits} kredi
+            {' '}
+            {sessionType === 'private' ? 'özel ders' : sessionType === 'group' ? 'grup dersi' : 'bu tarih'}
+            {' '}
+            için kullanılabilir
+          </p>
           <ul className="package-list">
-            {member.packages.map((item) => (
-              <li key={`${item.name}-${item.starts_on}`}>
-                {item.name} · {item.credits_remaining}/{item.credits_total} kredi · başlangıç {formatStudioDate(item.starts_on)}
-              </li>
-            ))}
+            {member.packages.map((item) => {
+              const use = packageSessionLabel(item.session_type)
+              return (
+                <li key={item.id || `${item.name}-${item.starts_on}`}>
+                  {item.name}
+                  {' · '}
+                  {item.credits_remaining}/{item.credits_total} kredi
+                  {use ? ` · ${use}` : ''}
+                  {' · başlangıç '}
+                  {formatStudioDate(item.starts_on)}
+                </li>
+              )
+            })}
           </ul>
 
           {reservations.length > 0 && (
