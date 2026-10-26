@@ -1043,9 +1043,9 @@ textarea {
 }
 
 .footer-logo {
-  width: 100%;
+  width: min(760px, calc(100% - 48px));
   height: auto;
-  margin-top: 28px;
+  margin: 32px auto 8px;
 }
 
 .footer-branding,
