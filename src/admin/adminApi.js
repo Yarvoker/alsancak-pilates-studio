@@ -1,0 +1,71 @@
+import { supabase } from '../booking/supabaseClient.js'
+
+const KNOWN_MESSAGES = [
+  'Yetkisiz',
+  'Katılım durumu geçersiz',
+  'Katılım bu kayıttan değiştirilemez',
+  'Rezervasyon bulunamadı',
+  'Rezervasyon iptal edilemez',
+  'Geldi işareti ders başladıktan sonra konur',
+  'No-show yalnızca derse 24 saatten az kala işaretlenir',
+  'Paket seçeneği geçersiz',
+  'Üye bulunamadı',
+  'Paket bulunamadı',
+  'Başlangıç tarihi geçmiş olamaz',
+]
+
+export function adminMessage(error) {
+  const text = `${error?.message || ''} ${error?.details || ''}`
+  return KNOWN_MESSAGES.find((item) => text.includes(item))
+    || 'İşlem tamamlanamadı. Lütfen tekrar dene.'
+}
+
+export async function adminLogin(username, password) {
+  const { data, error } = await supabase.rpc('admin_login', {
+    p_username: username,
+    p_password: password,
+  })
+  if (error) throw error
+  return data === true
+}
+
+export async function fetchAdminClients(username, password) {
+  const { data, error } = await supabase.rpc('admin_list_clients', {
+    p_username: username,
+    p_password: password,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchLessonHistory(username, password) {
+  const { data, error } = await supabase.rpc('admin_lesson_history', {
+    p_username: username,
+    p_password: password,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function markAttendance(username, password, reservationId, outcome) {
+  const { data, error } = await supabase.rpc('admin_mark_attendance', {
+    p_username: username,
+    p_password: password,
+    p_reservation_id: reservationId,
+    p_outcome: outcome,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function assignPackage(username, password, memberId, kind, startsOn) {
+  const { data, error } = await supabase.rpc('admin_assign_package', {
+    p_username: username,
+    p_password: password,
+    p_member_id: memberId,
+    p_kind: kind,
+    p_starts_on: startsOn,
+  })
+  if (error) throw error
+  return data
+}

@@ -1,12 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   bookSession,
   cancelReservation,
   fetchBookableSlots,
   fetchMemberState,
   messageOf,
+  registerTrialLesson,
+  requestMemberPackage,
 } from './bookingApi.js'
 import { normalizePhone } from './phone.js'
+import {
+  PACKAGE_OPTIONS,
+  creditsOnDate,
+  occupancyLabel,
+  packageLead,
+  packageOption,
+  packageWhatsappUrl,
+  sheetFor,
+  validPersonName,
+} from './sheetFlow.js'
 import {
   cancellationEffect,
   capacityFor,
@@ -24,7 +36,25 @@ const SESSION_LABEL = {
   group: 'Grup',
 }
 
+const SESSION_PHONE_KEY = 'alsancak-booking-phone'
 const initialClock = Date.now()
+
+function readSessionPhone() {
+  try {
+    return normalizePhone(sessionStorage.getItem(SESSION_PHONE_KEY))
+  } catch {
+    return null
+  }
+}
+
+function writeSessionPhone(phone) {
+  try {
+    if (phone) sessionStorage.setItem(SESSION_PHONE_KEY, phone)
+    else sessionStorage.removeItem(SESSION_PHONE_KEY)
+  } catch {
+    // Private browsing can reject storage. The form still works for this visit.
+  }
+}
 
 function dayChipLabel(isoDate) {
   const [year, month, day] = isoDate.split('-').map(Number)
@@ -36,12 +66,6 @@ function dayChipLabel(isoDate) {
   }).format(new Date(Date.UTC(year, month - 1, day)))
 }
 
-function creditsOnDate(packages, isoDate) {
-  return (packages ?? [])
-    .filter((item) => item.starts_on <= isoDate && item.credits_remaining > 0)
-    .reduce((sum, item) => sum + item.credits_remaining, 0)
-}
-
 function slotOnDate(slots, isoDate, time) {
   return slots.find((slot) => {
     const parts = istanbulDateTime(slot.starts_at)
@@ -51,11 +75,12 @@ function slotOnDate(slots, isoDate, time) {
 
 function BookingPanel({ whatsappUrl }) {
   const dates = useMemo(() => upcomingStudioDates(14), [])
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState(() => readSessionPhone() ?? '')
   const [memberState, setMemberState] = useState(null)
   const [selectedDate, setSelectedDate] = useState(dates[0])
   const [slots, setSlots] = useState([])
   const [selectedSlotId, setSelectedSlotId] = useState('')
+  const [sheet, setSheet] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [lookupBusy, setLookupBusy] = useState(false)
@@ -63,12 +88,19 @@ function BookingPanel({ whatsappUrl }) {
   const [actionBusy, setActionBusy] = useState(false)
   const [confirmBurnId, setConfirmBurnId] = useState('')
   const [clock, setClock] = useState(initialClock)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [trialPhone, setTrialPhone] = useState('')
+  const [sentKind, setSentKind] = useState('')
+  const sheetRef = useRef(null)
+  const lookupSeq = useRef(0)
 
   const member = memberState?.member ?? null
   const reservations = memberState?.reservations ?? []
   const times = slotStarts(selectedDate)
   const usableCredits = creditsOnDate(member?.packages, selectedDate)
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
+  const sentOption = packageOption(sentKind)
 
   useEffect(() => {
     let ignore = false
@@ -92,11 +124,42 @@ function BookingPanel({ whatsappUrl }) {
     }
   }, [selectedDate])
 
+  useEffect(() => {
+    const saved = readSessionPhone()
+    if (!saved) return undefined
+
+    let ignore = false
+    fetchMemberState(saved)
+      .then((next) => {
+        if (!ignore) setMemberState(next)
+      })
+      .catch((lookupError) => {
+        if (!ignore) setError(messageOf(lookupError))
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!sheet) return undefined
+    sheetRef.current?.focus()
+    return undefined
+  }, [sheet, selectedSlotId])
+
   async function refreshMember(activePhone) {
     const next = await fetchMemberState(activePhone)
     setMemberState(next)
     setClock(Date.now())
     return next
+  }
+
+  async function reloadSlots() {
+    const rows = await fetchBookableSlots(selectedDate, selectedDate)
+    setSlots(rows)
+    setClock(Date.now())
+    return rows
   }
 
   function updatePhone(value) {
@@ -105,6 +168,68 @@ function BookingPanel({ whatsappUrl }) {
     setNotice('')
     setError('')
     setConfirmBurnId('')
+    setSentKind('')
+    writeSessionPhone(null)
+    if (selectedSlotId && sheet !== 'trial-form') setSheet('trial-offer')
+  }
+
+  function closeSheet() {
+    setSheet(null)
+    setSelectedSlotId('')
+    setSentKind('')
+    setError('')
+  }
+
+  async function identify(activePhone) {
+    const seq = lookupSeq.current + 1
+    lookupSeq.current = seq
+    setLookupBusy(true)
+    setError('')
+
+    try {
+      const next = await refreshMember(activePhone)
+      if (lookupSeq.current !== seq) return next
+      writeSessionPhone(activePhone)
+      setSheet(sheetFor(next.member, selectedDate))
+      setNotice(next.member ? '' : 'Bu telefonla kayıtlı üyelik yok.')
+      return next
+    } catch (lookupError) {
+      if (lookupSeq.current === seq) {
+        setError(messageOf(lookupError))
+        setSheet('trial-offer')
+      }
+      return null
+    } finally {
+      if (lookupSeq.current === seq) setLookupBusy(false)
+    }
+  }
+
+  async function onSlotClick(slot) {
+    setSelectedSlotId(slot.id)
+    setSentKind('')
+    setNotice('')
+    setError('')
+    setConfirmBurnId('')
+
+    const normalized = normalizePhone(phone) || readSessionPhone()
+    if (!normalized) {
+      setSheet('trial-offer')
+      return
+    }
+
+    if (!normalizePhone(phone)) setPhone(normalized)
+    setSheet('checking')
+    await identify(normalized)
+  }
+
+  async function checkTypedPhone() {
+    const normalized = normalizePhone(phone)
+    if (!normalized) {
+      setError('Telefon numarası geçersiz')
+      return
+    }
+    setNotice('')
+    await identify(normalized)
   }
 
   async function lookupMember() {
@@ -120,13 +245,90 @@ function BookingPanel({ whatsappUrl }) {
 
     try {
       const next = await refreshMember(normalized)
-      if (!next.member) {
-        setNotice('Bu telefonla kayıtlı üyelik yok. Paket stüdyoda tanımlanır.')
-      }
+      writeSessionPhone(normalized)
+      if (!next.member) setNotice('Bu telefonla kayıtlı üyelik yok.')
     } catch (lookupError) {
       setError(messageOf(lookupError))
     } finally {
       setLookupBusy(false)
+    }
+  }
+
+  function openTrialForm() {
+    setTrialPhone(phone)
+    setNotice('')
+    setError('')
+    setSheet('trial-form')
+  }
+
+  async function submitTrial(event) {
+    event.preventDefault()
+    if (!selectedSlot) return
+
+    const normalized = normalizePhone(trialPhone)
+    if (!validPersonName(firstName) || !validPersonName(lastName)) {
+      setError('İsim ve soyisim gerekli')
+      return
+    }
+    if (!normalized) {
+      setError('Telefon numarası geçersiz')
+      return
+    }
+
+    setActionBusy(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await registerTrialLesson({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: normalized,
+        slotId: selectedSlot.id,
+      })
+      setPhone(normalized)
+      writeSessionPhone(normalized)
+      await refreshMember(normalized)
+      await reloadSlots()
+      setSheet(null)
+      setSelectedSlotId('')
+      setFirstName('')
+      setLastName('')
+      setNotice('Ücretsiz deneme dersin kaydedildi.')
+    } catch (trialError) {
+      const text = messageOf(trialError)
+      if (text === 'Bu telefonla kayıtlı üyelik var') {
+        setPhone(normalized)
+        const next = await identify(normalized)
+        const returning = next?.member?.has_taken_lessons
+          || next?.member?.trial_used
+          || next?.member?.has_paid_package
+        setNotice(returning ? 'Kaydın bulundu. Paketini seçebilirsin.' : 'Kaydın bulundu.')
+      } else {
+        setError(text)
+      }
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function choosePackage(kind) {
+    const normalized = normalizePhone(phone)
+    const option = packageOption(kind)
+    if (!normalized || !selectedSlot || !option) return
+
+    setActionBusy(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await requestMemberPackage(normalized, kind, selectedSlot.id)
+      setSentKind(kind)
+      setNotice(`${option.title} talebin stüdyoya iletildi.`)
+    } catch (requestError) {
+      setError(messageOf(requestError))
+    } finally {
+      setActionBusy(false)
     }
   }
 
@@ -141,14 +343,15 @@ function BookingPanel({ whatsappUrl }) {
     try {
       await bookSession(normalized, selectedSlot.id)
       setSelectedSlotId('')
+      setSheet(null)
       await refreshMember(normalized)
-      const rows = await fetchBookableSlots(selectedDate, selectedDate)
-      setSlots(rows)
+      await reloadSlots()
       setNotice('Yerin tutuldu.')
     } catch (bookError) {
       const text = messageOf(bookError)
       if (text === 'Üye bulunamadı') {
-        setNotice('Bu telefonla kayıtlı üyelik yok. Paket stüdyoda tanımlanır.')
+        setSheet('trial-offer')
+        setNotice('Bu telefonla kayıtlı üyelik yok.')
       } else {
         setError(text)
       }
@@ -175,8 +378,7 @@ function BookingPanel({ whatsappUrl }) {
     try {
       await cancelReservation(normalized, reservation.id)
       const next = await refreshMember(normalized)
-      const rows = await fetchBookableSlots(selectedDate, selectedDate)
-      setSlots(rows)
+      await reloadSlots()
       setConfirmBurnId('')
       const refunded = (next.member?.credits_remaining ?? 0) > creditsBefore
       setNotice(refunded ? 'İptal edildi. Kredi iade edildi.' : 'İptal edildi. Kredi yandı.')
@@ -191,9 +393,17 @@ function BookingPanel({ whatsappUrl }) {
   let holdBlock = ''
   if (member && usableCredits === 0 && futurePackage) {
     holdBlock = 'Üyelik başlangıcından önce rezervasyon yapılamaz'
-  } else if (member && usableCredits === 0) {
+  } else if (member && usableCredits === 0 && sheet === 'credits') {
     holdBlock = 'Kullanılabilir ders kredisi yok'
   }
+
+  const whatsappHref = sentOption && selectedSlot
+    ? packageWhatsappUrl(whatsappUrl, {
+      title: sentOption.title,
+      whenLabel: formatStudioWhen(selectedSlot.starts_at),
+      name: member?.full_name,
+    })
+    : ''
 
   return (
     <div className="booking-form">
@@ -207,6 +417,8 @@ function BookingPanel({ whatsappUrl }) {
               if (isoDate === selectedDate) return
               setSelectedDate(isoDate)
               setSelectedSlotId('')
+              setSheet(null)
+              setSentKind('')
               setConfirmBurnId('')
               setSlotsBusy(true)
             }}
@@ -220,14 +432,12 @@ function BookingPanel({ whatsappUrl }) {
         {times.map((time) => {
           const slot = slotOnDate(slots, selectedDate, time)
           const past = isPastSlot(selectedDate, time, clock)
-          const open = Boolean(slot) && slot.status === 'open' && !isSlotFull(slot.session_type, slot.booked_count)
-          const full = Boolean(slot) && (slot.status === 'full' || isSlotFull(slot.session_type, slot.booked_count))
-          let detail = 'Kapalı'
-          if (past) detail = 'Geçti'
-          else if (open) {
-            const left = capacityFor(slot.session_type) - slot.booked_count
-            detail = `${SESSION_LABEL[slot.session_type]} · ${left} yer`
-          } else if (full) detail = 'Dolu'
+          const bookable = Boolean(slot) && (slot.status === 'open' || slot.status === 'full')
+          const open = bookable
+            && slot.status === 'open'
+            && Boolean(slot.session_type)
+            && !isSlotFull(slot.session_type, slot.booked_count)
+          const detail = occupancyLabel(bookable ? slot : null, past)
 
           return (
             <button
@@ -235,7 +445,7 @@ function BookingPanel({ whatsappUrl }) {
               type="button"
               className={slot?.id === selectedSlotId ? 'time-slot active' : 'time-slot'}
               disabled={!open || past || actionBusy}
-              onClick={() => setSelectedSlotId(slot.id)}
+              onClick={() => onSlotClick(slot)}
             >
               <strong>{time}</strong>
               <small>{detail}</small>
@@ -244,21 +454,179 @@ function BookingPanel({ whatsappUrl }) {
         })}
       </div>
 
-      <div className="field-row booking-phone">
-        <label>
-          Telefon
-          <input
-            type="tel"
-            name="phone"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="05xx xxx xx xx"
-            value={phone}
-            onChange={(event) => updatePhone(event.target.value)}
-            required
-          />
-        </label>
-      </div>
+      {sheet !== 'trial-form' && (
+        <div className="field-row booking-phone">
+          <label>
+            Telefon
+            <input
+              type="tel"
+              name="phone"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="05xx xxx xx xx"
+              value={phone}
+              onChange={(event) => updatePhone(event.target.value)}
+            />
+          </label>
+        </div>
+      )}
+
+      {selectedSlot && sheet && (
+        <section
+          ref={sheetRef}
+          className="slot-sheet"
+          tabIndex={-1}
+          aria-labelledby="slot-sheet-title"
+          aria-busy={lookupBusy || actionBusy}
+        >
+          <p className="sheet-kicker">{occupancyLabel(selectedSlot, false)}</p>
+          <h3 id="slot-sheet-title">{formatStudioWhen(selectedSlot.starts_at)}</h3>
+
+          {sheet === 'checking' && <p className="sheet-copy">Kayıt kontrol ediliyor.</p>}
+
+          {sheet === 'trial-offer' && (
+            <div className="sheet-block">
+              <p className="sheet-kicker">Deneme Dersi Al</p>
+              <p className="sheet-copy">Bu saat için ücretsiz deneme dersi ayrılsın mı?</p>
+              <p className="sheet-copy">Kayıtlıysan numarayı yazıp kaydı kontrol et.</p>
+              <div className="sheet-actions">
+                <button type="button" className="cta" onClick={openTrialForm} disabled={lookupBusy}>
+                  Evet
+                </button>
+                <button type="button" className="cta ghost" onClick={closeSheet}>
+                  Vazgeç
+                </button>
+              </div>
+              <button
+                type="button"
+                className="text-button sheet-check"
+                onClick={checkTypedPhone}
+                disabled={lookupBusy || actionBusy}
+              >
+                {lookupBusy ? 'Bakılıyor' : 'Kaydı kontrol et'}
+              </button>
+            </div>
+          )}
+
+          {sheet === 'trial-form' && (
+            <form className="sheet-block" onSubmit={submitTrial}>
+              <p className="sheet-copy">Ücretsiz deneme dersi için adını ve telefonunu yaz.</p>
+              <div className="two-col">
+                <label>
+                  İsim
+                  <input
+                    name="given-name"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Soyisim
+                  <input
+                    name="family-name"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    required
+                  />
+                </label>
+              </div>
+              <label>
+                Telefon
+                <input
+                  type="tel"
+                  name="trial-phone"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="05xx xxx xx xx"
+                  value={trialPhone}
+                  onChange={(event) => setTrialPhone(event.target.value)}
+                  required
+                />
+              </label>
+              <div className="sheet-actions">
+                <button type="submit" className="cta" disabled={actionBusy}>
+                  {actionBusy ? 'Kaydediliyor' : 'Deneme dersini kaydet'}
+                </button>
+                <button type="button" className="cta ghost" onClick={() => setSheet('trial-offer')} disabled={actionBusy}>
+                  Vazgeç
+                </button>
+              </div>
+            </form>
+          )}
+
+          {sheet === 'packages' && (
+            <div className="sheet-block">
+              <p className="sheet-copy">{packageLead(member)}</p>
+              {member?.full_name && <p className="member-name">{member.full_name}</p>}
+              <div className="choice-list">
+                {PACKAGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.kind}
+                    type="button"
+                    className={sentKind === option.kind ? 'choice-card sent' : 'choice-card'}
+                    aria-pressed={sentKind === option.kind}
+                    onClick={() => choosePackage(option.kind)}
+                    disabled={actionBusy}
+                  >
+                    <span className="choice-index">{option.index}</span>
+                    <span>
+                      <strong>{option.title}</strong>
+                      <small>{sentKind === option.kind ? 'Talep iletildi' : option.detail}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {usableCredits > 0 && (
+                <button
+                  type="button"
+                  className="cta ghost cta-form"
+                  onClick={holdSeat}
+                  disabled={actionBusy || Boolean(holdBlock)}
+                >
+                  Bu dersi kredinle tut
+                </button>
+              )}
+              {whatsappHref && (
+                <a className="booking-link sheet-link" href={whatsappHref} target="_blank" rel="noreferrer">
+                  WhatsApp ile de gönder
+                </a>
+              )}
+              <button type="button" className="text-button sheet-check" onClick={closeSheet}>
+                Kapat
+              </button>
+            </div>
+          )}
+
+          {sheet === 'credits' && (
+            <div className="sheet-block">
+              {usableCredits > 0 ? (
+                <p className="sheet-copy">
+                  {member?.full_name ? `${member.full_name}, ` : ''}
+                  bu tarih için {usableCredits} kredin hazır.
+                </p>
+              ) : (
+                <p className="booking-error">{holdBlock || 'Kullanılabilir ders kredisi yok'}</p>
+              )}
+              <div className="sheet-actions">
+                <button
+                  type="button"
+                  className="cta"
+                  onClick={holdSeat}
+                  disabled={actionBusy || Boolean(holdBlock)}
+                >
+                  {actionBusy ? 'Kaydediliyor' : 'Yerini tut'}
+                </button>
+                <button type="button" className="cta ghost" onClick={closeSheet}>
+                  Vazgeç
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {member && (
         <div className="member-card">
@@ -309,27 +677,20 @@ function BookingPanel({ whatsappUrl }) {
         </div>
       )}
 
-      {holdBlock && <p className="booking-error">{holdBlock}</p>}
+      {holdBlock && sheet !== 'credits' && <p className="booking-error">{holdBlock}</p>}
 
-      <button
-        type="button"
-        className="cta cta-form"
-        onClick={selectedSlot ? holdSeat : lookupMember}
-        disabled={lookupBusy || actionBusy || (Boolean(selectedSlot) && Boolean(holdBlock))}
-      >
-        {actionBusy ? 'Kaydediliyor' : lookupBusy ? 'Bakılıyor' : selectedSlot ? 'Yerini tut' : 'Derslerimi göster'}
-      </button>
-
-      {!member && notice && (
-        <p className="booking-note">
-          {notice}{' '}
-          <a className="booking-link" href={whatsappUrl} target="_blank" rel="noreferrer">
-            Deneme seansı için WhatsApp
-          </a>
-        </p>
+      {!selectedSlot && (
+        <button
+          type="button"
+          className="cta cta-form"
+          onClick={lookupMember}
+          disabled={lookupBusy || actionBusy}
+        >
+          {lookupBusy ? 'Bakılıyor' : 'Derslerimi göster'}
+        </button>
       )}
 
-      {notice && member && <p className="booking-note" role="status">{notice}</p>}
+      {notice && <p className="booking-note" role="status">{notice}</p>}
       {error && <p className="booking-error" role="alert">{error}</p>}
     </div>
   )

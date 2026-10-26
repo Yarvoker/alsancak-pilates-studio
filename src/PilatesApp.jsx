@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AdminGate from './admin/AdminGate.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
 import './PilatesApp.css'
 
@@ -63,6 +64,7 @@ const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonk
 
 function PilatesApp() {
   const [activeDiscipline, setActiveDiscipline] = useState(disciplines[0])
+  const [adminOpen, setAdminOpen] = useState(false)
 
   return (
     <div className="page-shell">
@@ -83,9 +85,14 @@ function PilatesApp() {
           ))}
         </nav>
 
-        <a className="header-button" href={instagramUrl} target="_blank" rel="noreferrer">
-          Instagram’a yaz
-        </a>
+        <div className="header-actions">
+          <button type="button" className="admin-entry" onClick={() => setAdminOpen(true)}>
+            Admin Girişi
+          </button>
+          <a className="header-button" href={instagramUrl} target="_blank" rel="noreferrer">
+            Instagram’a yaz
+          </a>
+        </div>
       </header>
 
       <main>
@@ -285,8 +292,13 @@ function PilatesApp() {
           <a href="tel:+905302071908">Telefon: 0530 207 19 08</a>
           <a href={mapsUrl} target="_blank" rel="noreferrer">Google Maps’te görüntüle</a>
           <a href={instagramUrl} target="_blank" rel="noreferrer">Instagram: @alsancak_pilates</a>
+          <button type="button" className="admin-entry" onClick={() => setAdminOpen(true)}>
+            Admin Girişi
+          </button>
         </div>
       </footer>
+
+      {adminOpen && <AdminGate onClose={() => setAdminOpen(false)} />}
 
       <a className="floating-whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="WhatsApp ile deneme seansı hakkında bilgi alın">
         <span aria-hidden="true">WA</span>

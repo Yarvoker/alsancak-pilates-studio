@@ -2,8 +2,9 @@ import { supabase } from './supabaseClient.js'
 
 const KNOWN_MESSAGES = [
   'Telefon numarası geçersiz',
-  'Üye bulunamadı',
+  'Bu telefonla kayıtlı üyelik var',
   'Bu telefon birden fazla üyeye ait',
+  'Üye bulunamadı',
   'Kullanılabilir ders kredisi yok',
   'Üyelik başlangıcından önce rezervasyon yapılamaz',
   'Slot dolu',
@@ -13,6 +14,9 @@ const KNOWN_MESSAGES = [
   'Rezervasyon iptal edilemez',
   'Slot bulunamadı',
   'Geçersiz tarih aralığı',
+  'İsim ve soyisim gerekli',
+  'Paket seçeneği geçersiz',
+  'Paket talebi için kayıtlı üyelik gerekli',
 ]
 
 export function messageOf(error) {
@@ -49,6 +53,27 @@ export async function cancelReservation(phone, reservationId) {
   const { data, error } = await supabase.rpc('cancel_reservation_for_phone', {
     p_phone: phone,
     p_reservation_id: reservationId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function registerTrialLesson({ firstName, lastName, phone, slotId }) {
+  const { data, error } = await supabase.rpc('register_trial_lesson', {
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_phone: phone,
+    p_slot_id: slotId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function requestMemberPackage(phone, kind, slotId) {
+  const { data, error } = await supabase.rpc('request_member_package', {
+    p_phone: phone,
+    p_kind: kind,
+    p_slot_id: slotId,
   })
   if (error) throw error
   return data
