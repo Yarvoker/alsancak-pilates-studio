@@ -55,19 +55,110 @@ function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
 }
 
+const AUTH_URL_KEYS = [
+  'access_token',
+  'refresh_token',
+  'type',
+  'error',
+  'error_code',
+  'error_description',
+  'expires_in',
+  'expires_at',
+  'token_type',
+  'provider_token',
+  'provider_refresh_token',
+]
+
+function hashParamsOf(hash) {
+  const raw = String(hash || '').replace(/^#/, '')
+  if (!raw || !raw.includes('=')) return new URLSearchParams()
+  return new URLSearchParams(raw)
+}
+
+function urlCarriesAuth() {
+  const search = new URLSearchParams(window.location.search)
+  const hashParams = hashParamsOf(window.location.hash)
+  return AUTH_URL_KEYS.some((key) => search.has(key) || hashParams.has(key))
+}
+
+function linkErrorCopy(errorCode, errorText) {
+  const code = String(errorCode || '').toLowerCase()
+  const text = String(errorText || '').toLowerCase()
+  if (
+    code === 'otp_expired'
+    || code === 'access_denied'
+    || text.includes('otp_expired')
+    || text.includes('access_denied')
+  ) {
+    return 'Link süresi doldu, yeni kod iste'
+  }
+  return ''
+}
+
+function stripAuthFromUrl() {
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  const url = new URL(window.location.href)
+  for (const key of AUTH_URL_KEYS) url.searchParams.delete(key)
+
+  const raw = window.location.hash.replace(/^#/, '')
+  let nextHash = ''
+  if (raw && !raw.includes('=')) {
+    nextHash = AUTH_URL_KEYS.includes(raw) ? '' : `#${raw}`
+  } else if (raw) {
+    const params = new URLSearchParams(raw)
+    for (const key of AUTH_URL_KEYS) params.delete(key)
+    const kept = params.toString()
+    nextHash = kept ? `#${kept}` : ''
+  }
+
+  const search = url.searchParams.toString()
+  const next = `${url.pathname}${search ? `?${search}` : ''}${nextHash}`
+  if (next === current) return
+  window.history.replaceState(window.history.state, '', next)
+  window.dispatchEvent(new HashChangeEvent('hashchange'))
+}
+
+function retryAfterSeconds(error) {
+  const sources = [
+    error?.retryAfter,
+    error?.retry_after,
+    error?.headers?.['retry-after'],
+    error?.headers?.get?.('retry-after'),
+  ]
+  for (const source of sources) {
+    const parsed = Number.parseInt(String(source ?? ''), 10)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+  const blob = `${error?.message || ''} ${error?.details || ''} ${error?.error_description || ''}`
+  const timed = blob.match(/(\d+)\s*(?:seconds?|secs?|saniye|sn)\b/i)
+  if (timed) return Number(timed[1])
+  return 60
+}
+
 function mapAuthError(error, phase) {
-  const text = `${error?.message || ''} ${error?.code || ''}`.toLowerCase()
-  if (phase === 'verify' && (text.includes('expired') || text.includes('invalid') || text.includes('otp'))) {
-    return 'Kod hatalı veya süresi geçmiş.'
+  const status = Number(error?.status || 0)
+  const code = String(error?.code || error?.error_code || '').toLowerCase()
+  const message = String(error?.message || '')
+  const text = `${message} ${code}`.toLowerCase()
+  const rateLimited = status === 429
+    || code === 'over_email_send_rate_limit'
+    || text.includes('over_email_send_rate_limit')
+    || text.includes('email rate limit')
+    || text.includes('rate limit')
+
+  if (rateLimited) {
+    return `Çok fazla deneme, ${retryAfterSeconds(error)} sn sonra tekrar dene`
   }
-  if (text.includes('rate') || text.includes('too many') || text.includes('over_email')) {
-    return 'Bu e-posta için çok fazla kod istendi. Bir saat sonra tekrar dene.'
-  }
+  if (phase === 'verify') return 'Kod hatalı veya süresi geçmiş.'
   if (text.includes('not authorized') || text.includes('email_address_not_authorized')) {
     return 'Bu e-posta adresine doğrulama gönderilemedi.'
   }
   if (phase === 'send') return 'Kod gönderilemedi. Lütfen tekrar dene.'
   return 'Doğrulama tamamlanamadı. Lütfen tekrar dene.'
+}
+
+function codeDigits(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 6)
 }
 
 function dayChipLabel(isoDate) {
@@ -159,15 +250,72 @@ function BookingPanel() {
   }, [selectedDate])
 
   useEffect(() => {
-    let ignore = false
+    let active = true
+
+    async function refreshCard() {
+      try {
+        const next = await fetchMemberState()
+        if (active) setMemberState(next)
+      } catch (lookupError) {
+        if (active) setError(messageOf(lookupError))
+      }
+    }
+
+    function syncMember(event, session) {
+      if (!active) return
+      if (event === 'SIGNED_OUT') {
+        setAuthUser(null)
+        setMemberState(null)
+        return
+      }
+      if (event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED' && event !== 'INITIAL_SESSION') return
+      const user = session?.user ?? null
+      setAuthUser(user)
+      if (!user) {
+        setMemberState(null)
+        return
+      }
+      window.setTimeout(() => {
+        if (active) refreshCard()
+      }, 0)
+    }
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(syncMember)
+
+    const search = new URLSearchParams(window.location.search)
+    const hashParams = hashParamsOf(window.location.hash)
+    const errorCode = search.get('error_code') || hashParams.get('error_code') || ''
+    const errorText = [
+      search.get('error'),
+      hashParams.get('error'),
+      search.get('error_description'),
+      hashParams.get('error_description'),
+    ].filter(Boolean).join(' ')
+    const hadTokens = ['access_token', 'refresh_token'].some((key) => search.has(key) || hashParams.has(key))
+    const shouldClean = urlCarriesAuth()
+    const expiredLink = linkErrorCopy(errorCode, errorText)
+
     supabase.auth.getSession().then(({ data }) => {
-      if (!ignore) setAuthUser(data.session?.user ?? null)
+      if (!active) return
+      const user = data.session?.user ?? null
+      if (shouldClean) {
+        stripAuthFromUrl()
+        if (expiredLink) setError(expiredLink)
+        else if (hadTokens && user) {
+          setAuthUser(user)
+          document.getElementById('iletisim')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }
+      if (!user) {
+        setAuthUser(null)
+        setMemberState(null)
+      }
+    }).catch(() => {
+      if (active && shouldClean) stripAuthFromUrl()
     })
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null)
-    })
+
     return () => {
-      ignore = true
+      active = false
       subscription.subscription.unsubscribe()
     }
   }, [])
@@ -177,26 +325,6 @@ function BookingPanel() {
     const timer = window.setTimeout(() => setResendIn((value) => value - 1), 1000)
     return () => window.clearTimeout(timer)
   }, [resendIn])
-
-  useEffect(() => {
-    if (!authUser) {
-      setMemberState(null)
-      return undefined
-    }
-
-    let ignore = false
-    fetchMemberState()
-      .then((next) => {
-        if (!ignore) setMemberState(next)
-      })
-      .catch((lookupError) => {
-        if (!ignore) setError(messageOf(lookupError))
-      })
-
-    return () => {
-      ignore = true
-    }
-  }, [authUser])
 
   useEffect(() => {
     if (!sheet) return undefined
@@ -218,9 +346,16 @@ function BookingPanel() {
     return next
   }
 
-  async function attachPhone(normalized) {
+  async function applyClaim(normalized) {
     if (!normalized) return null
-    return claimMemberPhone(normalized)
+    const result = await claimMemberPhone(normalized)
+    const status = result?.status || null
+    if (status === 'pending') {
+      setRegisterOpen(false)
+      setSheet(null)
+      setNotice('Bu telefonun hesabına bağlanması için stüdyo onayı gerekiyor.')
+    }
+    return status
   }
 
   async function reloadSlots() {
@@ -325,7 +460,9 @@ function BookingPanel() {
 
     try {
       const normalized = normalizePhone(phone)
-      if (normalized) await attachPhone(normalized)
+      const status = normalized ? await applyClaim(normalized) : null
+      if (lookupSeq.current !== seq) return null
+      if (status === 'pending') return null
       const next = await refreshMember()
       if (lookupSeq.current !== seq) return next
       setSheet(sheetFor(next.member, selectedDate, sessionType, groupSeatOpen(selectedSlot)))
@@ -333,8 +470,12 @@ function BookingPanel() {
       return next
     } catch (lookupError) {
       if (lookupSeq.current === seq) {
-        setError(messageOf(lookupError))
-        setSheet('trial-offer')
+        const text = messageOf(lookupError)
+        setError(text)
+        setRegisterOpen(false)
+        setSheet(text === 'Çok fazla bağlama denemesi' || text === 'Devam etmek için e-posta kodunu doğrula.'
+          ? null
+          : 'trial-offer')
       }
       return null
     } finally {
@@ -369,13 +510,15 @@ function BookingPanel() {
     setNotice('')
 
     try {
-      await attachPhone(normalized)
+      const status = await applyClaim(normalized)
+      if (status === 'pending') return
       const next = await refreshMember()
       if (!next.member) {
         setRegisterOpen(true)
         setNotice('Bu telefonla kayıtlı üyelik yok.')
       } else {
         setRegisterOpen(false)
+        setNotice('')
       }
     } catch (lookupError) {
       setRegisterOpen(false)
@@ -392,7 +535,8 @@ function BookingPanel() {
     setError('')
     try {
       const normalized = normalizePhone(phone)
-      if (normalized) await attachPhone(normalized)
+      const status = normalized ? await applyClaim(normalized) : null
+      if (status === 'pending') return
       const next = await refreshMember()
       const credits = creditsOnDate(next.member?.packages, selectedDate, selectedSlot?.session_type)
       setSheet(credits > 0 ? 'credits' : 'packages')
@@ -716,6 +860,7 @@ function BookingPanel() {
           </div>
         ) : (
           <div className="field-row">
+            <p className="booking-note">Mailindeki 6 haneli kodu gir, linke tıklamana gerek yok</p>
             <label>
               E-posta
               <input
@@ -743,30 +888,34 @@ function BookingPanel() {
             {resendIn > 0 && (
               <p className="booking-note">Tekrar göndermek için {resendIn} sn</p>
             )}
-            {codeSent && (
-              <>
-                <label>
-                  Doğrulama kodu
-                  <input
-                    name="email-code"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    placeholder="6 haneli kod"
-                    value={code}
-                    onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="cta cta-form"
-                  onClick={verifyCode}
-                  disabled={authBusy || code.length !== 6}
-                >
-                  {authBusy ? 'Doğrulanıyor' : 'Doğrula'}
-                </button>
-              </>
-            )}
+            <label>
+              Doğrulama kodu
+              <input
+                name="email-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="6 haneli kod"
+                value={code}
+                onChange={(event) => {
+                  setCode(codeDigits(event.target.value))
+                  setError('')
+                }}
+                onPaste={(event) => {
+                  event.preventDefault()
+                  setCode(codeDigits(event.clipboardData?.getData('text') ?? ''))
+                  setError('')
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="cta cta-form"
+              onClick={verifyCode}
+              disabled={authBusy || code.length !== 6}
+            >
+              {authBusy ? 'Doğrulanıyor' : 'Doğrula'}
+            </button>
           </div>
         )}
       </section>

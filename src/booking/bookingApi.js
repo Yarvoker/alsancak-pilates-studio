@@ -22,11 +22,18 @@ const KNOWN_MESSAGES = [
   'Deneme antrenmanı yalnız grup dersine yazılır',
   'Paket seçeneği geçersiz',
   'Paket talebi için kayıtlı üyelik gerekli',
+  'Çok fazla bağlama denemesi',
 ]
 
 export function messageOf(error) {
-  const text = `${error?.message || ''} ${error?.details || ''}`
-  if (text.includes('Yetkisiz')) return 'Devam etmek için e-posta kodunu doğrula.'
+  const text = `${error?.message || ''} ${error?.details || ''} ${error?.code || ''}`
+  if (
+    text.includes('Yetkisiz')
+    || text.includes('permission denied')
+    || text.includes('42501')
+  ) {
+    return 'Devam etmek için e-posta kodunu doğrula.'
+  }
   return KNOWN_MESSAGES.find((item) => text.includes(item))
     || 'İşlem tamamlanamadı. Lütfen tekrar dene.'
 }

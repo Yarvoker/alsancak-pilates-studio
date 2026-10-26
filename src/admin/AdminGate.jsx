@@ -7,6 +7,8 @@ import {
   openStudioWeek,
   fetchBookingInquiries,
   fetchLessonHistory,
+  fetchLinkRequests,
+  decideLinkRequest,
   markAttendance,
 } from './adminApi.js'
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
@@ -77,6 +79,7 @@ function AdminGate({ onClose }) {
   const [busy, setBusy] = useState(false)
   const [clients, setClients] = useState([])
   const [inquiries, setInquiries] = useState([])
+  const [linkRequests, setLinkRequests] = useState([])
   const [lessons, setLessons] = useState([])
   const [memberId, setMemberId] = useState('')
   const [kind, setKind] = useState('pack_8')
@@ -94,14 +97,33 @@ function AdminGate({ onClose }) {
   }, [session, onClose])
 
   async function loadDesk(active) {
-    const [nextClients, nextInquiries, nextLessons] = await Promise.all([
+    const [nextClients, nextInquiries, nextLessons, nextLinks] = await Promise.all([
       fetchAdminClients(active.username, active.password),
       fetchBookingInquiries(active.username, active.password),
       fetchLessonHistory(active.username, active.password),
+      fetchLinkRequests(active.username, active.password),
     ])
     setClients(nextClients)
     setInquiries(nextInquiries)
     setLessons(nextLessons)
+    setLinkRequests(nextLinks)
+  }
+
+  async function decideLink(request, decision) {
+    if (!session) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await decideLinkRequest(session.username, session.password, request.id, decision)
+      await loadDesk(session)
+      setNotice(decision === 'approved' ? 'Telefon bağlandı.' : 'Bağlama isteği reddedildi.')
+    } catch (decideError) {
+      setError(adminMessage(decideError))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function openWeek() {
@@ -361,6 +383,50 @@ function AdminGate({ onClose }) {
                       )}
                     </td>
                     <td>{INQUIRY_LABEL[item.source] || 'Kayıt'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="admin-block">
+        <h2>Telefon bağlama</h2>
+        <p className="sheet-copy">
+          Onay, boş üyeliği isteyen hesaba bağlar ve e-postayı yazar. Reddetmek üyeyi değiştirmez.
+        </p>
+        {linkRequests.length === 0 ? (
+          <p className="sheet-copy">Bekleyen istek yok.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Danışan</th>
+                  <th>Telefon</th>
+                  <th>İsteyen e-posta</th>
+                  <th>Zaman</th>
+                  <th>İşlem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linkRequests.map((request) => (
+                  <tr key={request.id}>
+                    <td>{request.full_name || '—'}</td>
+                    <td>{request.phone || '—'}</td>
+                    <td>{request.email || '—'}</td>
+                    <td>{formatStudioWhen(request.created_at)}</td>
+                    <td>
+                      <div className="attendance-actions">
+                        <button type="button" onClick={() => decideLink(request, 'approved')} disabled={busy}>
+                          Onayla
+                        </button>
+                        <button type="button" className="danger" onClick={() => decideLink(request, 'rejected')} disabled={busy}>
+                          Reddet
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

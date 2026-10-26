@@ -15,6 +15,9 @@ const KNOWN_MESSAGES = [
   'Üye bulunamadı',
   'Paket bulunamadı',
   'Başlangıç tarihi geçmiş olamaz',
+  'Bağlama kararı geçersiz',
+  'Bağlama isteği bulunamadı',
+  'Bağlama onaylanamadı',
 ]
 
 export function adminMessage(error) {
@@ -75,6 +78,26 @@ export async function openStudioWeek(username, password, sessionType) {
     p_username: username,
     p_password: password,
     p_session_type: sessionType,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function fetchLinkRequests(username, password) {
+  const { data, error } = await supabase.rpc('admin_list_link_requests', {
+    p_username: username,
+    p_password: password,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function decideLinkRequest(username, password, requestId, decision) {
+  const { data, error } = await supabase.rpc('admin_decide_link_request', {
+    p_username: username,
+    p_password: password,
+    p_request_id: requestId,
+    p_decision: decision,
   })
   if (error) throw error
   return data
