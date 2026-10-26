@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AdminGate from './admin/AdminGate.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
+import PaymentPanel from './booking/PaymentPanel.jsx'
 import './PilatesApp.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
@@ -65,6 +66,14 @@ const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonk
 function PilatesApp() {
   const [activeDiscipline, setActiveDiscipline] = useState(disciplines[0])
   const [adminOpen, setAdminOpen] = useState(false)
+  const [hash, setHash] = useState(() => window.location.hash)
+  const checkoutOpen = hash === '#odeme'
+
+  useEffect(() => {
+    const sync = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
 
   return (
     <div className="page-shell">
@@ -96,6 +105,8 @@ function PilatesApp() {
       </header>
 
       <main>
+        {checkoutOpen && <PaymentPanel />}
+        {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
           <div className="hero-copy">
             <p className="eyebrow">ALSANCAK · İZMİR</p>
@@ -203,7 +214,7 @@ function PilatesApp() {
             <h2>Dersini ayır.</h2>
           </div>
 
-          <BookingPanel whatsappUrl={whatsappUrl} />
+          <BookingPanel />
         </section>
 
         <section className="trainer section" id="egitmen">
@@ -280,6 +291,7 @@ function PilatesApp() {
             </a>
           </div>
         </section>
+        </>)}
       </main>
 
       <footer className="site-footer">

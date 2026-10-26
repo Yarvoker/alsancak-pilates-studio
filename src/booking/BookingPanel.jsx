@@ -7,7 +7,6 @@ import {
   messageOf,
   recordBookingInquiry,
   registerTrialLesson,
-  requestMemberPackage,
 } from './bookingApi.js'
 import { normalizePhone } from './phone.js'
 import {
@@ -18,18 +17,21 @@ import {
   packageLead,
   packageOption,
   packageSessionLabel,
-  packageWhatsappUrl,
+  packageSessionType,
+  saveCheckout,
   sheetFor,
   validPersonName,
 } from './sheetFlow.js'
 import {
   cancellationEffect,
   capacityFor,
+  addIsoDays,
   formatStudioDate,
   formatStudioWhen,
   istanbulDateTime,
   isPastSlot,
   isSlotFull,
+  openingMinutes,
   slotStarts,
   studioDatesForWeek,
 } from './slotRules.js'
@@ -76,7 +78,14 @@ function slotsAt(slots, isoDate, time) {
   })
 }
 
-function BookingPanel({ whatsappUrl }) {
+function groupSeatOpen(slot) {
+  return Boolean(slot)
+    && slot.session_type === 'group'
+    && slot.status === 'open'
+    && (slot.booked_count ?? 0) < (slot.capacity ?? 0)
+}
+
+function BookingPanel() {
   const dates = useMemo(() => studioDatesForWeek(), [])
   const [phone, setPhone] = useState(() => readSessionPhone() ?? '')
   const [memberState, setMemberState] = useState(null)
@@ -94,7 +103,10 @@ function BookingPanel({ whatsappUrl }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [trialPhone, setTrialPhone] = useState('')
-  const [sentKind, setSentKind] = useState('')
+  const [checkoutKind, setCheckoutKind] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [startSlots, setStartSlots] = useState([])
+  const [startBusy, setStartBusy] = useState(false)
   const sheetRef = useRef(null)
   const lookupSeq = useRef(0)
 
@@ -102,7 +114,6 @@ function BookingPanel({ whatsappUrl }) {
   const reservations = memberState?.reservations ?? []
   const times = slotStarts(selectedDate)
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
-  const sentOption = packageOption(sentKind)
   const sessionType = selectedSlot?.session_type ?? null
   const usableCredits = creditsOnDate(member?.packages, selectedDate, sessionType)
   const datedCredits = creditsOnDate(member?.packages, selectedDate)
@@ -179,15 +190,15 @@ function BookingPanel({ whatsappUrl }) {
     setNotice('')
     setError('')
     setConfirmBurnId('')
-    setSentKind('')
     writeSessionPhone(null)
-    if (selectedSlotId && sheet !== 'trial-form') setSheet('trial-offer')
+    if (selectedSlotId && !['trial-form', 'packages', 'start-day', 'start-time'].includes(sheet)) {
+      setSheet(groupSeatOpen(selectedSlot) ? 'trial-offer' : 'packages')
+    }
   }
 
   function closeSheet() {
     setSheet(null)
     setSelectedSlotId('')
-    setSentKind('')
     setError('')
   }
 
@@ -201,7 +212,7 @@ function BookingPanel({ whatsappUrl }) {
       const next = await refreshMember(activePhone)
       if (lookupSeq.current !== seq) return next
       writeSessionPhone(activePhone)
-      setSheet(sheetFor(next.member, selectedDate, sessionType))
+      setSheet(sheetFor(next.member, selectedDate, sessionType, groupSeatOpen(selectedSlot)))
       setNotice(next.member ? '' : 'Bu telefonla kayıtlı üyelik yok.')
       return next
     } catch (lookupError) {
@@ -217,7 +228,6 @@ function BookingPanel({ whatsappUrl }) {
 
   async function onSlotClick(slot) {
     setSelectedSlotId(slot.id)
-    setSentKind('')
     setNotice('')
     setError('')
     setConfirmBurnId('')
@@ -226,7 +236,7 @@ function BookingPanel({ whatsappUrl }) {
 
     const normalized = normalizePhone(phone) || readSessionPhone()
     if (!normalized) {
-      setSheet('trial-offer')
+      setSheet(groupSeatOpen(slot) ? 'trial-offer' : 'packages')
       return
     }
 
@@ -269,6 +279,28 @@ function BookingPanel({ whatsappUrl }) {
     }
   }
 
+  async function declineTrial() {
+    const normalized = normalizePhone(phone)
+    if (!normalized) {
+      setSheet('packages')
+      return
+    }
+
+    setLookupBusy(true)
+    setError('')
+    try {
+      const next = await refreshMember(normalized)
+      writeSessionPhone(normalized)
+      const credits = creditsOnDate(next.member?.packages, selectedDate, selectedSlot?.session_type)
+      setSheet(credits > 0 ? 'credits' : 'packages')
+    } catch (lookupError) {
+      setError(messageOf(lookupError))
+      setSheet('packages')
+    } finally {
+      setLookupBusy(false)
+    }
+  }
+
   function openTrialForm() {
     setTrialPhone(phone)
     setNotice('')
@@ -278,7 +310,10 @@ function BookingPanel({ whatsappUrl }) {
 
   async function submitTrial(event) {
     event.preventDefault()
-    if (!selectedSlot) return
+    if (!selectedSlot || !groupSeatOpen(selectedSlot)) {
+      setError('Deneme antrenmanı yalnız boş grup saatine yazılır')
+      return
+    }
 
     const normalized = normalizePhone(trialPhone)
     if (!validPersonName(firstName) || !validPersonName(lastName)) {
@@ -309,7 +344,7 @@ function BookingPanel({ whatsappUrl }) {
       setSelectedSlotId('')
       setFirstName('')
       setLastName('')
-      setNotice('Ücretsiz deneme dersin kaydedildi.')
+      setNotice('Deneme antrenmanın bu grup saatine kaydedildi.')
     } catch (trialError) {
       const text = messageOf(trialError)
       if (text === 'Bu telefonla kayıtlı üyelik var') {
@@ -327,24 +362,45 @@ function BookingPanel({ whatsappUrl }) {
     }
   }
 
-  async function choosePackage(kind) {
-    const normalized = normalizePhone(phone)
-    const option = packageOption(kind)
-    if (!normalized || !selectedSlot || !option) return
-
-    setActionBusy(true)
+  function selectPackage(kind) {
+    if (!packageOption(kind)) return
+    setCheckoutKind(kind)
+    setStartDate('')
+    setStartSlots([])
     setError('')
     setNotice('')
+    setSheet('start-day')
+  }
+
+  async function pickStartDay(isoDate) {
+    setStartDate(isoDate)
+    setSheet('start-time')
+    setStartBusy(true)
+    setError('')
 
     try {
-      await requestMemberPackage(normalized, kind, selectedSlot.id)
-      setSentKind(kind)
-      setNotice(`${option.title} talebin stüdyoya iletildi.`)
-    } catch (requestError) {
-      setError(messageOf(requestError))
+      const rows = await fetchBookableSlots(isoDate, isoDate)
+      setStartSlots(rows)
+      setClock(Date.now())
+    } catch (loadError) {
+      setStartSlots([])
+      setError(messageOf(loadError))
     } finally {
-      setActionBusy(false)
+      setStartBusy(false)
     }
+  }
+
+  function continueToPayment(time) {
+    const option = packageOption(checkoutKind)
+    if (!option || !startDate || !time) return
+    saveCheckout({
+      kind: option.kind,
+      title: option.title,
+      startsOn: startDate,
+      time,
+      sessionType: packageSessionType(option.kind),
+    })
+    window.location.hash = 'odeme'
   }
 
   async function holdSeat() {
@@ -415,13 +471,20 @@ function BookingPanel({ whatsappUrl }) {
     holdBlock = 'Kullanılabilir ders kredisi yok'
   }
 
-  const whatsappHref = sentOption && selectedSlot
-    ? packageWhatsappUrl(whatsappUrl, {
-      title: sentOption.title,
-      whenLabel: formatStudioWhen(selectedSlot.starts_at),
-      name: member?.full_name,
+  const checkoutOption = packageOption(checkoutKind)
+  const nextStartDate = addIsoDays(selectedDate, 1)
+  const sessionForPackage = packageSessionType(checkoutKind)
+  const openHours = startDate
+    ? slotStarts(startDate).flatMap((time) => {
+      if (isPastSlot(startDate, time, clock)) return []
+      const slot = startSlots.find((item) => {
+        const parts = istanbulDateTime(item.starts_at)
+        return parts.date === startDate && parts.time === time && item.session_type === sessionForPackage
+      })
+      if (!slot || slot.status !== 'open' || (slot.booked_count ?? 0) >= (slot.capacity ?? 0)) return []
+      return [{ time, detail: occupancyLabel(slot, false) }]
     })
-    : ''
+    : []
 
   return (
     <div className="booking-form">
@@ -436,7 +499,6 @@ function BookingPanel({ whatsappUrl }) {
               setSelectedDate(isoDate)
               setSelectedSlotId('')
               setSheet(null)
-              setSentKind('')
               setConfirmBurnId('')
               setSlotsBusy(true)
               rememberInquiry(isoDate, phone, 'day')
@@ -515,15 +577,14 @@ function BookingPanel({ whatsappUrl }) {
 
           {sheet === 'trial-offer' && (
             <div className="sheet-block">
-              <p className="sheet-kicker">Deneme Dersi Al</p>
-              <p className="sheet-copy">Bu saat için ücretsiz deneme dersi ayrılsın mı?</p>
-              <p className="sheet-copy">Kayıtlıysan numarayı yazıp kaydı kontrol et.</p>
+              <p className="sheet-kicker">Deneme antrenmanı</p>
+              <p className="sheet-copy">Bu grup saatinde yer var. İstersen deneme antrenmanına doğrudan kaydolabilirsin.</p>
               <div className="sheet-actions">
                 <button type="button" className="cta" onClick={openTrialForm} disabled={lookupBusy}>
-                  Evet
+                  Deneme antrenmanına kaydol
                 </button>
-                <button type="button" className="cta ghost" onClick={closeSheet}>
-                  Vazgeç
+                <button type="button" className="cta ghost" onClick={declineTrial} disabled={lookupBusy}>
+                  Deneme istemiyorum
                 </button>
               </div>
               <button
@@ -539,7 +600,7 @@ function BookingPanel({ whatsappUrl }) {
 
           {sheet === 'trial-form' && (
             <form className="sheet-block" onSubmit={submitTrial}>
-              <p className="sheet-copy">Ücretsiz deneme dersi için adını ve telefonunu yaz.</p>
+              <p className="sheet-copy">Deneme antrenmanı bu grup saatine yazılır. Adını ve telefonunu yaz.</p>
               <div className="two-col">
                 <label>
                   İsim
@@ -577,7 +638,7 @@ function BookingPanel({ whatsappUrl }) {
               </label>
               <div className="sheet-actions">
                 <button type="submit" className="cta" disabled={actionBusy}>
-                  {actionBusy ? 'Kaydediliyor' : 'Deneme dersini kaydet'}
+                  {actionBusy ? 'Kaydediliyor' : 'Deneme antrenmanını kaydet'}
                 </button>
                 <button type="button" className="cta ghost" onClick={() => setSheet('trial-offer')} disabled={actionBusy}>
                   Vazgeç
@@ -595,37 +656,73 @@ function BookingPanel({ whatsappUrl }) {
                   <button
                     key={option.kind}
                     type="button"
-                    className={sentKind === option.kind ? 'choice-card sent' : 'choice-card'}
-                    aria-pressed={sentKind === option.kind}
-                    onClick={() => choosePackage(option.kind)}
-                    disabled={actionBusy}
+                    className="choice-card"
+                    onClick={() => selectPackage(option.kind)}
                   >
                     <span className="choice-index">{option.index}</span>
                     <span>
                       <strong>{option.title}</strong>
-                      <small>{sentKind === option.kind ? 'Talep iletildi' : option.detail}</small>
+                      <small>{option.detail}</small>
                     </span>
                   </button>
                 ))}
               </div>
-              {usableCredits > 0 && (
-                <button
-                  type="button"
-                  className="cta ghost cta-form"
-                  onClick={holdSeat}
-                  disabled={actionBusy || Boolean(holdBlock)}
-                >
-                  Bu dersi kredinle tut
-                </button>
-              )}
-              {holdBlock && <p className="booking-error">{holdBlock}</p>}
-              {whatsappHref && (
-                <a className="booking-link sheet-link" href={whatsappHref} target="_blank" rel="noreferrer">
-                  WhatsApp ile de gönder
-                </a>
-              )}
               <button type="button" className="text-button sheet-check" onClick={closeSheet}>
                 Kapat
+              </button>
+            </div>
+          )}
+
+          {sheet === 'start-day' && checkoutOption && (
+            <div className="sheet-block">
+              <p className="sheet-copy">{checkoutOption.title} ne zaman başlasın?</p>
+              <div className="sheet-actions">
+                <button type="button" className="cta" onClick={() => pickStartDay(selectedDate)} disabled={startBusy}>
+                  Seçtiğin gün, {formatStudioDate(selectedDate)}
+                </button>
+                <button type="button" className="cta ghost" onClick={() => pickStartDay(nextStartDate)} disabled={startBusy}>
+                  Ertesi gün, {formatStudioDate(nextStartDate)}
+                </button>
+              </div>
+              <button type="button" className="text-button sheet-check" onClick={() => setSheet('packages')}>
+                Geri
+              </button>
+            </div>
+          )}
+
+          {sheet === 'start-time' && checkoutOption && (
+            <div className="sheet-block">
+              <p className="sheet-copy">
+                {checkoutOption.title}, {startDate ? formatStudioDate(startDate) : ''}. Saatini seç.
+              </p>
+              {startBusy && <p className="sheet-copy">Saatler yükleniyor.</p>}
+              {!startBusy && openHours.length === 0 && (
+                <p className="sheet-copy">
+                  {openingMinutes(startDate) === null
+                    ? 'Bu gün stüdyo kapalı.'
+                    : 'Bu günde seçilebilir saat yok.'}
+                </p>
+              )}
+              {openHours.length > 0 && (
+                <div className="choice-list">
+                  {openHours.map((item) => (
+                    <button
+                      key={item.time}
+                      type="button"
+                      className="choice-card"
+                      onClick={() => continueToPayment(item.time)}
+                    >
+                      <span className="choice-index">{item.time}</span>
+                      <span>
+                        <strong>{item.detail}</strong>
+                        <small>Ödemeye geç</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button type="button" className="text-button sheet-check" onClick={() => setSheet('start-day')}>
+                Geri
               </button>
             </div>
           )}
@@ -653,6 +750,9 @@ function BookingPanel({ whatsappUrl }) {
                   Vazgeç
                 </button>
               </div>
+              <button type="button" className="text-button sheet-check" onClick={() => setSheet('packages')}>
+                Yeni paket al
+              </button>
             </div>
           )}
         </section>

@@ -745,6 +745,45 @@ textarea {
   margin-top: 14px;
 }
 
+.payment-card {
+  max-width: 560px;
+  padding: 22px 20px 18px;
+  border: 1px solid rgba(232, 185, 35, 0.38);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(232, 185, 35, 0.1), rgba(12, 27, 24, 0.35) 42%);
+}
+
+.payment-card h3 {
+  margin-top: 6px;
+  color: var(--cream);
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
+}
+
+.payment-time {
+  margin-top: 4px;
+  color: var(--cream);
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+
+.iyzico-slot {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px dashed rgba(244, 239, 231, 0.28);
+  border-radius: 16px;
+}
+
+.iyzico-slot .cta {
+  margin-top: 14px;
+}
+
+.payment-back {
+  display: inline-flex;
+  margin-top: 16px;
+}
+
 .reservation-list {
   margin-top: 22px;
 }

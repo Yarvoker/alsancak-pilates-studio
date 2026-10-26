@@ -4,22 +4,24 @@ export const PACKAGE_OPTIONS = [
   {
     kind: 'pack_8',
     index: '08',
-    title: "8'li Pilates Paketi",
-    detail: 'Sekiz ders',
+    title: "8'li antrenman",
+    detail: 'Grup dersi',
   },
   {
     kind: 'pack_12',
     index: '12',
-    title: "12'li Pilates Paketi",
-    detail: 'On iki ders',
+    title: "12'li antrenman",
+    detail: 'Grup dersi',
   },
   {
     kind: 'private_single',
-    index: '01',
-    title: 'Özel Ders',
-    detail: 'Tekli, bireysel',
+    index: 'ÖZ',
+    title: 'Özel antrenman',
+    detail: 'Özel ders, 2 kişi',
   },
 ]
+
+const CHECKOUT_KEY = 'alsancak-checkout'
 
 export function packageFitsSlot(item, sessionType) {
   if (!sessionType || !item?.session_type) return true
@@ -63,15 +65,22 @@ export function occupancyLabel(slot, past) {
   return `${booked}/${slot.capacity} ${kind}`
 }
 
-export function sheetFor(member, isoDate, sessionType) {
-  if (!member) return 'trial-offer'
+export function packageSessionType(kind) {
+  if (kind === 'private_single') return 'private'
+  if (kind === 'pack_8' || kind === 'pack_12') return 'group'
+  return null
+}
+
+export function sheetFor(member, isoDate, sessionType, groupSeatOpen = false) {
+  if (!member) return groupSeatOpen ? 'trial-offer' : 'packages'
 
   const credits = creditsOnDate(member.packages, isoDate, sessionType)
-  if (member.has_taken_lessons) return 'packages'
   if (credits > 0) return 'credits'
   if (futureCreditPackage(member.packages, isoDate, sessionType)) return 'credits'
-  if (member.trial_used || member.has_paid_package) return 'packages'
-  return 'trial-offer'
+  if (!member.trial_used && !member.has_taken_lessons && !member.has_paid_package && groupSeatOpen) {
+    return 'trial-offer'
+  }
+  return 'packages'
 }
 
 export function packageSessionLabel(sessionType) {
@@ -82,18 +91,29 @@ export function packageSessionLabel(sessionType) {
 
 export function packageLead(member) {
   if (member?.trial_used && !member?.has_taken_lessons) {
-    return 'Deneme dersin kayıtlı. Sonraki dersler için paketini seç.'
+    return 'Deneme antrenmanın kayıtlı. Devam etmek için bir paket seç.'
   }
-  return 'Paketini seç. Talebin stüdyoya iletilir.'
+  return 'Paketi seç. Başlangıç günü ve saatten sonra ödeme adımına geçilir.'
 }
 
 export function packageOption(kind) {
   return PACKAGE_OPTIONS.find((item) => item.kind === kind) ?? null
 }
 
-export function packageWhatsappUrl(whatsappUrl, { title, whenLabel, name }) {
-  const origin = String(whatsappUrl || '').split('?')[0]
-  const who = name ? `${name}. ` : ''
-  const text = `Merhaba, ${who}${title} için talep bırakıyorum. Ders: ${whenLabel}.`
-  return `${origin}?text=${encodeURIComponent(text)}`
+export function saveCheckout(order) {
+  try {
+    sessionStorage.setItem(CHECKOUT_KEY, JSON.stringify(order))
+  } catch {
+    // Private browsing can reject storage. The payment screen then asks for the choice again.
+  }
+}
+
+export function readCheckout() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(CHECKOUT_KEY) || 'null')
+    if (!parsed?.title || !parsed?.startsOn || !parsed?.time) return null
+    return parsed
+  } catch {
+    return null
+  }
 }
