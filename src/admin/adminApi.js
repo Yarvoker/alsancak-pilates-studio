@@ -8,6 +8,8 @@ const KNOWN_MESSAGES = [
   'Rezervasyon iptal edilemez',
   'Geldi işareti ders başladıktan sonra konur',
   'No-show yalnızca derse 24 saatten az kala işaretlenir',
+  'Ders türü gerekli',
+  'Mevcut rezervasyonlar yeni kapasiteyi aşıyor',
   'Paket seçeneği geçersiz',
   'Özel ders kredisi geçersiz',
   'Üye bulunamadı',
@@ -63,6 +65,16 @@ export async function markAttendance(username, password, reservationId, outcome)
     p_password: password,
     p_reservation_id: reservationId,
     p_outcome: outcome,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function openStudioWeek(username, password, sessionType) {
+  const { data, error } = await supabase.rpc('admin_open_week', {
+    p_username: username,
+    p_password: password,
+    p_session_type: sessionType,
   })
   if (error) throw error
   return data

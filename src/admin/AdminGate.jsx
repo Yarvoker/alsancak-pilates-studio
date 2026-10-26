@@ -4,6 +4,7 @@ import {
   adminMessage,
   assignPackage,
   fetchAdminClients,
+  openStudioWeek,
   fetchBookingInquiries,
   fetchLessonHistory,
   markAttendance,
@@ -101,6 +102,23 @@ function AdminGate({ onClose }) {
     setClients(nextClients)
     setInquiries(nextInquiries)
     setLessons(nextLessons)
+  }
+
+  async function openWeek(sessionType) {
+    if (!session) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const result = await openStudioWeek(session.username, session.password, sessionType)
+      const label = sessionType === 'private' ? 'özel ders, 2 kişilik' : 'grup dersi, 14 kişilik'
+      setNotice(`${result.opened} saat ${label} olarak açıldı.`)
+    } catch (openError) {
+      setError(adminMessage(openError))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function submitLogin(event) {
@@ -259,6 +277,21 @@ function AdminGate({ onClose }) {
           {error && <p className="booking-error" role="alert">{error}</p>}
         </div>
       )}
+
+      <section className="admin-block">
+        <h2>Haftalık dersler</h2>
+        <p className="sheet-copy">
+          Bugünden itibaren bir haftalık saatleri açar. Özel ders 2 kişi, grup dersi 14 kişi alır.
+        </p>
+        <div className="sheet-actions">
+          <button type="button" className="cta" disabled={busy} onClick={() => openWeek('private')}>
+            Özel ders, 2 kişi
+          </button>
+          <button type="button" className="cta ghost" disabled={busy} onClick={() => openWeek('group')}>
+            Grup dersi, 14 kişi
+          </button>
+        </div>
+      </section>
 
       <section className="admin-block">
         <h2>Danışanlar</h2>
