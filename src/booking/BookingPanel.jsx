@@ -25,7 +25,6 @@ import {
 import {
   cancellationEffect,
   capacityFor,
-  addIsoDays,
   formatStudioDate,
   formatStudioWhen,
   istanbulDateTime,
@@ -191,7 +190,7 @@ function BookingPanel() {
     setError('')
     setConfirmBurnId('')
     writeSessionPhone(null)
-    if (selectedSlotId && !['trial-form', 'packages', 'start-day', 'start-time'].includes(sheet)) {
+    if (selectedSlotId && !['trial-form', 'packages', 'start-time'].includes(sheet)) {
       setSheet(groupSeatOpen(selectedSlot) ? 'trial-offer' : 'packages')
     }
   }
@@ -365,11 +364,9 @@ function BookingPanel() {
   function selectPackage(kind) {
     if (!packageOption(kind)) return
     setCheckoutKind(kind)
-    setStartDate('')
-    setStartSlots([])
     setError('')
     setNotice('')
-    setSheet('start-day')
+    pickStartDay(selectedDate)
   }
 
   async function pickStartDay(isoDate) {
@@ -472,7 +469,6 @@ function BookingPanel() {
   }
 
   const checkoutOption = packageOption(checkoutKind)
-  const nextStartDate = addIsoDays(selectedDate, 1)
   const sessionForPackage = packageSessionType(checkoutKind)
   const openHours = startDate
     ? slotStarts(startDate).flatMap((time) => {
@@ -673,23 +669,6 @@ function BookingPanel() {
             </div>
           )}
 
-          {sheet === 'start-day' && checkoutOption && (
-            <div className="sheet-block">
-              <p className="sheet-copy">{checkoutOption.title} ne zaman başlasın?</p>
-              <div className="sheet-actions">
-                <button type="button" className="cta" onClick={() => pickStartDay(selectedDate)} disabled={startBusy}>
-                  Seçtiğin gün, {formatStudioDate(selectedDate)}
-                </button>
-                <button type="button" className="cta ghost" onClick={() => pickStartDay(nextStartDate)} disabled={startBusy}>
-                  Ertesi gün, {formatStudioDate(nextStartDate)}
-                </button>
-              </div>
-              <button type="button" className="text-button sheet-check" onClick={() => setSheet('packages')}>
-                Geri
-              </button>
-            </div>
-          )}
-
           {sheet === 'start-time' && checkoutOption && (
             <div className="sheet-block">
               <p className="sheet-copy">
@@ -721,7 +700,7 @@ function BookingPanel() {
                   ))}
                 </div>
               )}
-              <button type="button" className="text-button sheet-check" onClick={() => setSheet('start-day')}>
+              <button type="button" className="text-button sheet-check" onClick={() => setSheet('packages')}>
                 Geri
               </button>
             </div>

@@ -93,7 +93,7 @@ export function packageLead(member) {
   if (member?.trial_used && !member?.has_taken_lessons) {
     return 'Deneme antrenmanın kayıtlı. Devam etmek için bir paket seç.'
   }
-  return 'Paketi seç. Başlangıç günü ve saatten sonra ödeme adımına geçilir.'
+  return 'Paketi seç. Saatini seçince ödeme adımına geçilir.'
 }
 
 export function packageOption(kind) {
