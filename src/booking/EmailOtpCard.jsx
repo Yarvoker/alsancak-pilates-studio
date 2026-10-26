@@ -277,7 +277,10 @@ function EmailOtpCard({
     setNotice('')
     const { error: sendError } = await supabase.auth.signInWithOtp({
       email: nextEmail,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: 'https://alsancak-pilates-studio.vercel.app/hesabim',
+      },
     })
     setAuthBusy(false)
 
@@ -290,7 +293,7 @@ function EmailOtpCard({
     setCodeSent(true)
     setCode('')
     setResendIn(60)
-    setNotice('Doğrulama kodu e-postana gönderildi.')
+    setNotice('Giriş bağlantısı e-postana gönderildi. Bağlantıya tıkla.')
   }
 
   async function verifyCode() {
@@ -466,7 +469,7 @@ function EmailOtpCard({
       <h1>Giriş yap</h1>
       {!codeSent ? (
         <div className="field-row">
-          <p className="booking-note">E-postana 6 haneli kod göndereceğiz.</p>
+          <p className="booking-note">E-postana giriş bağlantısı göndereceğiz. Bağlantı Hesabım sayfasını açar.</p>
           <label>
             E-posta
             <input
@@ -496,7 +499,7 @@ function EmailOtpCard({
         </div>
       ) : (
         <div className="field-row">
-          <p className="booking-note">Mailindeki 6 haneli kodu gir, linke tıklamana gerek yok</p>
+          <p className="booking-note">E-postadaki giriş bağlantısına tıkla. 6 haneli kod da varsa onu yaz.</p>
           <p className="auth-email">{email}</p>
           <label>
             Doğrulama kodu
