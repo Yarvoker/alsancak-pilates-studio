@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BookingPanel from './booking/BookingPanel.jsx'
 import './PilatesApp.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
@@ -62,17 +63,6 @@ const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonk
 
 function PilatesApp() {
   const [activeDiscipline, setActiveDiscipline] = useState(disciplines[0])
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    time: '',
-    notes: '',
-  })
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
-  }
 
   return (
     <div className="page-shell">
@@ -122,7 +112,7 @@ function PilatesApp() {
 
             <div className="hero-actions">
               <a className="cta cta-primary" href="#iletisim">
-                Deneme Seansı Al
+                Rezervasyon Yap
               </a>
             </div>
           </div>
@@ -203,78 +193,16 @@ function PilatesApp() {
         <section className="booking section" id="iletisim">
           <div className="booking-layout">
             <div className="booking-copy">
-              <p className="eyebrow">DENEME SEANSI</p>
-              <h2>Neden deneme seansı?</h2>
+              <p className="eyebrow">REZERVASYON</p>
+              <h2>Dersini ayır.</h2>
               <p>
-                Hareket kalıplarını keşfetmek, doğru akışa uygun bir başlangıç yapmak ve stüdyoyu tanımak için ideal ilk adım.
+                Üye telefonunla açık derslerden yer tut. Paket başlangıcından önce rezervasyon açılmaz.
+                Özel ders 2, grup dersi 14 kişiliktir; dolunca kapanır. İptal, dersten 24 saatten önceyse krediyi iade eder.
+                Daha geç iptalde veya derse gelinmezse kredi yanar.
               </p>
             </div>
 
-            <form className="booking-form" onSubmit={handleSubmit}>
-              <div className="field-row">
-                <label>
-                  Ad Soyad
-                    <input
-                    type="text"
-                      name="name"
-                    placeholder="Ad Soyad"
-                    value={formData.name}
-                    onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
-                    required
-                  />
-                </label>
-              </div>
-
-              <div className="field-row two-col">
-                <label>
-                  Telefon
-                    <input
-                    type="tel"
-                      name="phone"
-                    placeholder="05xx xxx xx xx"
-                    value={formData.phone}
-                    onChange={(event) => setFormData((current) => ({ ...current, phone: event.target.value }))}
-                    required
-                  />
-                </label>
-                <label>
-                  Tercih edilen gün/saat
-                  <select
-                    name="preferredTime"
-                    value={formData.time}
-                    onChange={(event) => setFormData((current) => ({ ...current, time: event.target.value }))}
-                    required
-                  >
-                    <option value="" disabled>
-                      Seçiniz
-                    </option>
-                    <option>Pazartesi 18:30</option>
-                    <option>Salı 08:30</option>
-                    <option>Çarşamba 19:00</option>
-                    <option>Perşembe 18:00</option>
-                    <option>Cuma 17:30</option>
-                    <option>Cumartesi 10:00</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="field-row">
-                <label>
-                  Not
-                  <textarea
-                    name="notes"
-                    rows="4"
-                    placeholder="Eklemek istediğiniz notlar..."
-                    value={formData.notes}
-                    onChange={(event) => setFormData((current) => ({ ...current, notes: event.target.value }))}
-                  />
-                </label>
-              </div>
-
-              <button type="submit" className="cta cta-form">
-                WhatsApp’tan Gönder
-              </button>
-            </form>
+            <BookingPanel whatsappUrl={whatsappUrl} />
           </div>
         </section>
 
@@ -348,7 +276,7 @@ function PilatesApp() {
               </p>
             </div>
             <a className="cta cta-primary dark" href="#iletisim">
-              Deneme Seansı Al
+              Rezervasyon Yap
             </a>
           </div>
         </section>

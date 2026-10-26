@@ -72,7 +72,79 @@ export function isSlotFull(sessionType, bookedCount) {
 }
 
 export function cancellationEffect(now, startsAt) {
-  const remainingMs = startsAt.getTime() - now.getTime()
-  if (remainingMs > CANCEL_WINDOW_HOURS * 60 * 60 * 1000) return 'refund'
+  const nowMs = typeof now === 'number' ? now : now.getTime()
+  const startMs = typeof startsAt === 'number' ? startsAt : new Date(startsAt).getTime()
+  if (startMs - nowMs > CANCEL_WINDOW_HOURS * 60 * 60 * 1000) return 'refund'
   return 'burn'
+}
+
+export function todayIso(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(now)
+}
+
+export function addIsoDays(isoDate, days) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const utc = new Date(Date.UTC(year, month - 1, day + days))
+  const nextYear = utc.getUTCFullYear()
+  const nextMonth = String(utc.getUTCMonth() + 1).padStart(2, '0')
+  const nextDay = String(utc.getUTCDate()).padStart(2, '0')
+  return `${nextYear}-${nextMonth}-${nextDay}`
+}
+
+export function upcomingStudioDates(count = 14, now = new Date()) {
+  const dates = []
+  let cursor = todayIso(now)
+
+  while (dates.length < count) {
+    if (openingMinutes(cursor) !== null) dates.push(cursor)
+    cursor = addIsoDays(cursor, 1)
+  }
+
+  return dates
+}
+
+export function istanbulDateTime(isoTimestamp) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(isoTimestamp))
+  const value = (type) => parts.find((part) => part.type === type)?.value ?? ''
+  return {
+    date: `${value('year')}-${value('month')}-${value('day')}`,
+    time: `${value('hour')}:${value('minute')}`,
+  }
+}
+
+export function isPastSlot(isoDate, hhmm, now = Date.now()) {
+  const nowDate = typeof now === 'number' ? new Date(now) : now
+  const today = todayIso(nowDate)
+  if (isoDate < today) return true
+  if (isoDate > today) return false
+  return hhmm <= istanbulDateTime(nowDate.toISOString()).time
+}
+
+export function formatStudioWhen(isoTimestamp) {
+  return new Intl.DateTimeFormat('tr-TR', {
+    timeZone: TIME_ZONE,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(isoTimestamp))
+}
+
+export function formatStudioDate(isoDate) {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)))
 }
