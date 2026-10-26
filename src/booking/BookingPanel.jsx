@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   bookSession,
   cancelReservation,
+  claimMemberPhone,
   fetchBookableSlots,
   fetchMemberState,
   messageOf,
@@ -10,6 +11,7 @@ import {
   registerTrialLesson,
 } from './bookingApi.js'
 import { normalizePhone } from './phone.js'
+import { supabase } from './supabaseClient.js'
 import {
   PACKAGE_OPTIONS,
   creditsOnDate,
@@ -41,24 +43,31 @@ const SESSION_LABEL = {
   group: 'Grup',
 }
 
-const SESSION_PHONE_KEY = 'alsancak-booking-phone'
 const initialClock = Date.now()
 
-function readSessionPhone() {
-  try {
-    return normalizePhone(sessionStorage.getItem(SESSION_PHONE_KEY))
-  } catch {
-    return null
-  }
+try {
+  sessionStorage.removeItem('alsancak-booking-phone')
+} catch {
+  // Private browsing can reject storage. Auth still lives in the Supabase session.
 }
 
-function writeSessionPhone(phone) {
-  try {
-    if (phone) sessionStorage.setItem(SESSION_PHONE_KEY, phone)
-    else sessionStorage.removeItem(SESSION_PHONE_KEY)
-  } catch {
-    // Private browsing can reject storage. The form still works for this visit.
+function validEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
+}
+
+function mapAuthError(error, phase) {
+  const text = `${error?.message || ''} ${error?.code || ''}`.toLowerCase()
+  if (phase === 'verify' && (text.includes('expired') || text.includes('invalid') || text.includes('otp'))) {
+    return 'Kod hatalı veya süresi geçmiş.'
   }
+  if (text.includes('rate') || text.includes('too many') || text.includes('over_email')) {
+    return 'Bu e-posta için çok fazla kod istendi. Bir saat sonra tekrar dene.'
+  }
+  if (text.includes('not authorized') || text.includes('email_address_not_authorized')) {
+    return 'Bu e-posta adresine doğrulama gönderilemedi.'
+  }
+  if (phase === 'send') return 'Kod gönderilemedi. Lütfen tekrar dene.'
+  return 'Doğrulama tamamlanamadı. Lütfen tekrar dene.'
 }
 
 function dayChipLabel(isoDate) {
@@ -87,7 +96,13 @@ function groupSeatOpen(slot) {
 
 function BookingPanel() {
   const dates = useMemo(() => studioDatesForWeek(), [])
-  const [phone, setPhone] = useState(() => readSessionPhone() ?? '')
+  const [phone, setPhone] = useState('')
+  const [authUser, setAuthUser] = useState(null)
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
+  const [resendIn, setResendIn] = useState(0)
+  const [authBusy, setAuthBusy] = useState(false)
   const [memberState, setMemberState] = useState(null)
   const [selectedDate, setSelectedDate] = useState(dates[0])
   const [slots, setSlots] = useState([])
@@ -110,6 +125,7 @@ function BookingPanel() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const [trialSlotId, setTrialSlotId] = useState('')
   const sheetRef = useRef(null)
+  const emailRef = useRef(null)
   const lookupSeq = useRef(0)
 
   const member = memberState?.member ?? null
@@ -143,11 +159,33 @@ function BookingPanel() {
   }, [selectedDate])
 
   useEffect(() => {
-    const saved = readSessionPhone()
-    if (!saved) return undefined
+    let ignore = false
+    supabase.auth.getSession().then(({ data }) => {
+      if (!ignore) setAuthUser(data.session?.user ?? null)
+    })
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null)
+    })
+    return () => {
+      ignore = true
+      subscription.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined
+    const timer = window.setTimeout(() => setResendIn((value) => value - 1), 1000)
+    return () => window.clearTimeout(timer)
+  }, [resendIn])
+
+  useEffect(() => {
+    if (!authUser) {
+      setMemberState(null)
+      return undefined
+    }
 
     let ignore = false
-    fetchMemberState(saved)
+    fetchMemberState()
       .then((next) => {
         if (!ignore) setMemberState(next)
       })
@@ -158,7 +196,7 @@ function BookingPanel() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [authUser])
 
   useEffect(() => {
     if (!sheet) return undefined
@@ -166,11 +204,23 @@ function BookingPanel() {
     return undefined
   }, [sheet, selectedSlotId])
 
-  async function refreshMember(activePhone) {
-    const next = await fetchMemberState(activePhone)
+  function requireAuth() {
+    if (authUser) return true
+    setError('Devam etmek için e-posta kodunu doğrula.')
+    emailRef.current?.focus()
+    return false
+  }
+
+  async function refreshMember() {
+    const next = await fetchMemberState()
     setMemberState(next)
     setClock(Date.now())
     return next
+  }
+
+  async function attachPhone(normalized) {
+    if (!normalized) return null
+    return claimMemberPhone(normalized)
   }
 
   async function reloadSlots() {
@@ -188,15 +238,76 @@ function BookingPanel() {
 
   function updatePhone(value) {
     setPhone(value)
-    setMemberState(null)
     setNotice('')
     setError('')
     setConfirmBurnId('')
-    writeSessionPhone(null)
-    if (registerOpen) return
-    if (selectedSlotId && !['trial-form', 'packages', 'start-time'].includes(sheet)) {
-      setSheet(groupSeatOpen(selectedSlot) ? 'trial-offer' : 'packages')
+  }
+
+  async function sendCode() {
+    const nextEmail = email.trim().toLowerCase()
+    if (!validEmail(nextEmail)) {
+      setError('E-posta geçersiz.')
+      return
     }
+
+    setAuthBusy(true)
+    setError('')
+    setNotice('')
+    const { error: sendError } = await supabase.auth.signInWithOtp({
+      email: nextEmail,
+      options: { shouldCreateUser: true },
+    })
+    setAuthBusy(false)
+
+    if (sendError) {
+      setError(mapAuthError(sendError, 'send'))
+      return
+    }
+
+    setEmail(nextEmail)
+    setCodeSent(true)
+    setCode('')
+    setResendIn(60)
+    setNotice('Doğrulama kodu e-postana gönderildi.')
+  }
+
+  async function verifyCode() {
+    const token = code.replace(/\D/g, '')
+    if (token.length !== 6) {
+      setError('Kod hatalı veya süresi geçmiş.')
+      return
+    }
+
+    setAuthBusy(true)
+    setError('')
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token,
+      type: 'email',
+    })
+    setAuthBusy(false)
+
+    if (verifyError) {
+      setError(mapAuthError(verifyError, 'verify'))
+      return
+    }
+
+    setCode('')
+    setCodeSent(false)
+    setResendIn(0)
+    setNotice('')
+  }
+
+  async function signOutMember() {
+    await supabase.auth.signOut()
+    setMemberState(null)
+    setCode('')
+    setCodeSent(false)
+    setResendIn(0)
+    setRegisterOpen(false)
+    setSheet(null)
+    setNotice('')
+    setError('')
   }
 
   function closeSheet() {
@@ -205,16 +316,18 @@ function BookingPanel() {
     setError('')
   }
 
-  async function identify(activePhone, sessionType = selectedSlot?.session_type) {
+  async function identify(sessionType = selectedSlot?.session_type) {
+    if (!requireAuth()) return null
     const seq = lookupSeq.current + 1
     lookupSeq.current = seq
     setLookupBusy(true)
     setError('')
 
     try {
-      const next = await refreshMember(activePhone)
+      const normalized = normalizePhone(phone)
+      if (normalized) await attachPhone(normalized)
+      const next = await refreshMember()
       if (lookupSeq.current !== seq) return next
-      writeSessionPhone(activePhone)
       setSheet(sheetFor(next.member, selectedDate, sessionType, groupSeatOpen(selectedSlot)))
       setNotice(next.member ? '' : 'Bu telefonla kayıtlı üyelik yok.')
       return next
@@ -236,30 +349,14 @@ function BookingPanel() {
     setConfirmBurnId('')
 
     if (String(phone).trim()) rememberInquiry(selectedDate, phone, 'phone')
+    if (!requireAuth()) return
 
-    const normalized = normalizePhone(phone) || readSessionPhone()
-    if (!normalized) {
-      setSheet(groupSeatOpen(slot) ? 'trial-offer' : 'packages')
-      return
-    }
-
-    if (!normalizePhone(phone)) setPhone(normalized)
     setSheet('checking')
-    await identify(normalized, slot.session_type)
-  }
-
-  async function checkTypedPhone() {
-    const normalized = normalizePhone(phone)
-    if (!normalized) {
-      setError('Telefon numarası geçersiz')
-      return
-    }
-    setNotice('')
-    rememberInquiry(selectedDate, phone, 'phone')
-    await identify(normalized)
+    await identify(slot.session_type)
   }
 
   async function lookupMember() {
+    if (!requireAuth()) return
     rememberInquiry(selectedDate, phone, 'phone')
     const normalized = normalizePhone(phone)
     if (!normalized) {
@@ -272,8 +369,8 @@ function BookingPanel() {
     setNotice('')
 
     try {
-      const next = await refreshMember(normalized)
-      writeSessionPhone(normalized)
+      await attachPhone(normalized)
+      const next = await refreshMember()
       if (!next.member) {
         setRegisterOpen(true)
         setNotice('Bu telefonla kayıtlı üyelik yok.')
@@ -281,6 +378,7 @@ function BookingPanel() {
         setRegisterOpen(false)
       }
     } catch (lookupError) {
+      setRegisterOpen(false)
       setError(messageOf(lookupError))
     } finally {
       setLookupBusy(false)
@@ -288,17 +386,14 @@ function BookingPanel() {
   }
 
   async function declineTrial() {
-    const normalized = normalizePhone(phone)
-    if (!normalized) {
-      setSheet('packages')
-      return
-    }
+    if (!requireAuth()) return
 
     setLookupBusy(true)
     setError('')
     try {
-      const next = await refreshMember(normalized)
-      writeSessionPhone(normalized)
+      const normalized = normalizePhone(phone)
+      if (normalized) await attachPhone(normalized)
+      const next = await refreshMember()
       const credits = creditsOnDate(next.member?.packages, selectedDate, selectedSlot?.session_type)
       setSheet(credits > 0 ? 'credits' : 'packages')
     } catch (lookupError) {
@@ -338,6 +433,7 @@ function BookingPanel() {
 
   async function submitRegistration(event) {
     event.preventDefault()
+    if (!requireAuth()) return
     const normalized = normalizePhone(phone)
     if (!validPersonName(firstName) || !validPersonName(lastName)) {
       setError('İsim ve soyisim gerekli')
@@ -359,8 +455,7 @@ function BookingPanel() {
         phone: normalized,
       })
       setPhone(normalized)
-      writeSessionPhone(normalized)
-      await refreshMember(normalized)
+      await refreshMember()
       setRegisterOpen(false)
       setNotice('Kaydın oluşturuldu.')
     } catch (registerError) {
@@ -372,6 +467,7 @@ function BookingPanel() {
 
   async function submitTrial(event) {
     event.preventDefault()
+    if (!requireAuth()) return
     const bookedSlot = startSlots.find((item) => item.id === trialSlotId) || selectedSlot
     const groupOpen = bookedSlot?.session_type === 'group'
       && bookedSlot.status === 'open'
@@ -403,8 +499,7 @@ function BookingPanel() {
         slotId: bookedSlot.id,
       })
       setPhone(normalized)
-      writeSessionPhone(normalized)
-      await refreshMember(normalized)
+      await refreshMember()
       await reloadSlots()
       setSheet(null)
       setSelectedSlotId('')
@@ -417,7 +512,7 @@ function BookingPanel() {
       const text = messageOf(trialError)
       if (text === 'Bu telefonla kayıtlı üyelik var') {
         setPhone(normalized)
-        const next = await identify(normalized)
+        const next = await identify()
         const returning = next?.member?.has_taken_lessons
           || next?.member?.trial_used
           || next?.member?.has_paid_package
@@ -470,18 +565,17 @@ function BookingPanel() {
   }
 
   async function holdSeat() {
-    const normalized = normalizePhone(phone)
-    if (!normalized || !selectedSlot) return
+    if (!requireAuth() || !selectedSlot) return
 
     setActionBusy(true)
     setError('')
     setNotice('')
 
     try {
-      await bookSession(normalized, selectedSlot.id)
+      await bookSession(selectedSlot.id)
       setSelectedSlotId('')
       setSheet(null)
-      await refreshMember(normalized)
+      await refreshMember()
       await reloadSlots()
       setNotice('Yerin tutuldu.')
     } catch (bookError) {
@@ -498,8 +592,7 @@ function BookingPanel() {
   }
 
   async function cancelSeat(reservation) {
-    const normalized = normalizePhone(phone)
-    if (!normalized) return
+    if (!requireAuth()) return
 
     const effect = cancellationEffect(Date.now(), reservation.starts_at)
     if (effect === 'burn' && confirmBurnId !== reservation.id) {
@@ -513,8 +606,8 @@ function BookingPanel() {
     setNotice('')
 
     try {
-      await cancelReservation(normalized, reservation.id)
-      const next = await refreshMember(normalized)
+      await cancelReservation(reservation.id)
+      const next = await refreshMember()
       await reloadSlots()
       setConfirmBurnId('')
       const refunded = (next.member?.credits_remaining ?? 0) > creditsBefore
@@ -612,6 +705,71 @@ function BookingPanel() {
           )
         })}
       </div>
+
+      <section className="member-auth" aria-label="Üye girişi">
+        {authUser ? (
+          <div className="auth-bar">
+            <p className="auth-email">{authUser.email}</p>
+            <button type="button" className="text-button" onClick={signOutMember} disabled={authBusy}>
+              Çıkış
+            </button>
+          </div>
+        ) : (
+          <div className="field-row">
+            <label>
+              E-posta
+              <input
+                ref={emailRef}
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                placeholder="ornek@eposta.com"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  setError('')
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="cta cta-form"
+              onClick={sendCode}
+              disabled={authBusy || resendIn > 0}
+            >
+              {codeSent && resendIn === 0 ? 'Tekrar gönder' : 'Kod gönder'}
+            </button>
+            {resendIn > 0 && (
+              <p className="booking-note">Tekrar göndermek için {resendIn} sn</p>
+            )}
+            {codeSent && (
+              <>
+                <label>
+                  Doğrulama kodu
+                  <input
+                    name="email-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="6 haneli kod"
+                    value={code}
+                    onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="cta cta-form"
+                  onClick={verifyCode}
+                  disabled={authBusy || code.length !== 6}
+                >
+                  {authBusy ? 'Doğrulanıyor' : 'Doğrula'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </section>
 
       {sheet !== 'trial-form' && (
         <div className="field-row booking-phone">

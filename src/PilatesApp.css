@@ -549,8 +549,24 @@ textarea {
   gap: 8px;
 }
 
-.booking-phone {
+.booking-phone,
+.member-auth {
   margin-top: 18px;
+}
+
+.auth-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-email {
+  margin: 0;
+  color: var(--cream);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .time-slot {

@@ -2,7 +2,10 @@ import { supabase } from './supabaseClient.js'
 
 const KNOWN_MESSAGES = [
   'Telefon numarası geçersiz',
+  'Yetkisiz',
   'Bu telefonla kayıtlı üyelik var',
+  'Bu telefon başka bir hesaba bağlı',
+  'Bu hesap zaten bir üyeye bağlı',
   'Bu telefon birden fazla üyeye ait',
   'Üye bulunamadı',
   'Kullanılabilir ders kredisi yok',
@@ -23,6 +26,7 @@ const KNOWN_MESSAGES = [
 
 export function messageOf(error) {
   const text = `${error?.message || ''} ${error?.details || ''}`
+  if (text.includes('Yetkisiz')) return 'Devam etmek için e-posta kodunu doğrula.'
   return KNOWN_MESSAGES.find((item) => text.includes(item))
     || 'İşlem tamamlanamadı. Lütfen tekrar dene.'
 }
@@ -36,8 +40,14 @@ export async function recordBookingInquiry(selectedOn, phone, source) {
   if (error) throw error
 }
 
-export async function fetchMemberState(phone) {
-  const { data, error } = await supabase.rpc('member_booking_state', { p_phone: phone })
+export async function claimMemberPhone(phone) {
+  const { data, error } = await supabase.rpc('claim_member_phone', { p_phone: phone })
+  if (error) throw error
+  return data
+}
+
+export async function fetchMemberState() {
+  const { data, error } = await supabase.rpc('member_booking_state')
   if (error) throw error
   return data
 }
@@ -51,18 +61,14 @@ export async function fetchBookableSlots(fromDate, toDate) {
   return data ?? []
 }
 
-export async function bookSession(phone, slotId) {
-  const { data, error } = await supabase.rpc('book_session_for_phone', {
-    p_phone: phone,
-    p_slot_id: slotId,
-  })
+export async function bookSession(slotId) {
+  const { data, error } = await supabase.rpc('book_session', { p_slot_id: slotId })
   if (error) throw error
   return data
 }
 
-export async function cancelReservation(phone, reservationId) {
-  const { data, error } = await supabase.rpc('cancel_reservation_for_phone', {
-    p_phone: phone,
+export async function cancelReservation(reservationId) {
+  const { data, error } = await supabase.rpc('cancel_reservation', {
     p_reservation_id: reservationId,
   })
   if (error) throw error
