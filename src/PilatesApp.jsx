@@ -45,7 +45,6 @@ function accountInitials(profile, user) {
 const disciplineButtons = [
   'Reformer Pilates',
   'Fonksiyonel Pilates',
-  'TRX',
 ]
 
 const disciplines = [
@@ -62,12 +61,6 @@ const disciplines = [
     title: 'Fonksiyonel Pilates',
     description: 'Günlük hareketleri güçlendiren, enerji yükselten ve dayanıklılığı artıran akış.',
     badge: 'Max 8',
-  },
-  {
-    id: 'trx',
-    title: 'TRX',
-    description: 'Stüdyo ekipmanlarıyla desteklenen, core ve stabilite odaklı kontrollü kuvvet çalışması.',
-    badge: 'Max 6',
   },
 ]
 
@@ -123,7 +116,7 @@ const pricing = [
   },
 ]
 
-const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman', 'TRX']
+const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman']
 
 function AdminRoute() {
   const navigate = useNavigate()
@@ -197,7 +190,7 @@ function PilatesApp() {
             <p className="eyebrow">ALSANCAK · İZMİR</p>
             <h1>Hareket için doğru yer.</h1>
             <p className="hero-text">
-              Alsancak, İzmir’de Mat ve Reformer Pilates, Fonksiyonel antrenman, Crossfit ve TRX.
+              Alsancak, İzmir’de Mat ve Reformer Pilates, Fonksiyonel antrenman ve Crossfit.
             </p>
 
             <div className="selector-row" aria-label="Ders seçenekleri">
