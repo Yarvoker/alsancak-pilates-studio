@@ -396,10 +396,16 @@ function PilatesApp() {
 
       <footer className="site-footer">
         <img className="footer-logo" src="/images/logo-yatay-krem.png" alt="Alsancak Pilates Studio" />
-        <a className="footer-social" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram’da aç">
-          <InstagramIcon />
-          <span>Instagram</span>
-        </a>
+        <div className="footer-actions">
+          <a className="footer-action footer-action--whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer">
+            <WhatsAppIcon />
+            <span>WhatsApp'tan yaz</span>
+          </a>
+          <a className="footer-action footer-action--instagram" href={instagramUrl} target="_blank" rel="noreferrer">
+            <InstagramIcon />
+            <span>Instagram</span>
+          </a>
+        </div>
       </footer>
 
       <div className="contact-dock">

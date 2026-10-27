@@ -1137,16 +1137,14 @@ textarea {
 
 @media (max-width: 768px) {
   .topbar {
-    justify-content: center;
-    flex-wrap: wrap;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    padding-top: 0;
+    padding-bottom: 0;
   }
 
   .main-nav {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
+    display: none;
   }
 
   .hero {
@@ -1227,10 +1225,6 @@ textarea {
   .section {
     width: min(var(--max-width), calc(100% - 28px));
     padding: 56px 0;
-  }
-
-  .site-footer {
-    padding-bottom: 80px;
   }
 
   .price-card,
@@ -1415,7 +1409,7 @@ textarea {
 }
 
 .contact-social,
-.footer-social {
+.footer-actions {
   display: none;
 }
 
@@ -1725,63 +1719,69 @@ textarea {
   }
 
   .contact-dock {
-    right: 14px;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    left: auto;
-    flex-direction: column;
-  }
-
-  .contact-dock-link--instagram {
-    display: none;
-  }
-
-  .contact-dock-link--whatsapp {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
-  }
-
-  .contact-dock-link--whatsapp svg {
-    width: 26px;
-    height: 26px;
-  }
-
-  body.menu-open .contact-dock,
-  body:has(.login-modal-backdrop) .contact-dock,
-  body:has(.account-modal-backdrop) .contact-dock,
-  body:has(.slot-sheet) .contact-dock {
     display: none;
   }
 
   .site-footer {
-    padding-bottom: 80px;
+    padding-bottom: 0;
   }
 
-  .contact-social,
-  .footer-social {
+  .footer-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: min(var(--max-width), calc(100% - 28px));
+    margin: 4px auto calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .footer-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 48px;
+    min-width: 0;
+    padding: 0 8px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .footer-action span {
+    white-space: nowrap;
+  }
+
+  .footer-action svg {
+    width: 22px;
+    height: 22px;
+    flex: none;
+  }
+
+  .footer-action--whatsapp {
+    background: #25d366;
+  }
+
+  .footer-action--instagram {
+    background: radial-gradient(circle at 30% 120%, #feda77, #f58529 28%, #dd2a7b 58%, #8134af 82%);
+  }
+
+  .contact-social {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-height: 44px;
+    margin-top: 18px;
     color: var(--cream);
     font-size: 0.95rem;
     letter-spacing: 0.04em;
   }
 
-  .contact-social {
-    margin-top: 18px;
-  }
-
-  .contact-social svg,
-  .footer-social svg {
+  .contact-social svg {
     width: 22px;
     height: 22px;
-  }
-
-  .footer-social {
-    width: fit-content;
-    margin: 0 auto 8px;
   }
 
   .hero-actions {
@@ -1825,5 +1825,11 @@ textarea {
   .time-kind,
   .time-slot small {
     font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 339px) {
+  .footer-actions {
+    grid-template-columns: 1fr;
   }
 }
