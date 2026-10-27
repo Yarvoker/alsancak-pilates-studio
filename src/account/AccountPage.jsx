@@ -317,6 +317,9 @@ function AccountPage({ user, onUser }) {
 
   const profile = data?.profile
   const profileComplete = data?.profile_complete === true
+  const profileFilled = ['first_name', 'last_name'].every((key) => String(profile?.[key] || '').trim().length >= 2)
+    && String(profile?.email || user?.email || '').trim().includes('@')
+    && String(profile?.phone_masked || '').trim().length > 0
   const pack = data?.package
   const activePackage = pack?.status === 'active'
   const remaining = pack?.credits_remaining ?? 0
@@ -532,6 +535,7 @@ function AccountPage({ user, onUser }) {
             </div>
           </section>
 
+          {!profileFilled && (
           <section className="account-card" aria-labelledby="profile-title">
             <h2 id="profile-title">Profil</h2>
             <form onSubmit={saveProfile}>
@@ -587,6 +591,7 @@ function AccountPage({ user, onUser }) {
               </button>
             </form>
           </section>
+          )}
 
           <section className="account-card" aria-labelledby="kvkk-title">
             <h2 id="kvkk-title">KVKK</h2>
