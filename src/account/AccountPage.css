@@ -312,6 +312,11 @@
 }
 
 @media (max-width: 640px) {
+  .account-page {
+    width: min(720px, calc(100% - 28px));
+    padding-bottom: calc(108px + env(safe-area-inset-bottom));
+  }
+
   .account-hero,
   .account-row,
   .account-row-meta,
@@ -323,6 +328,15 @@
   .account-button,
   .account-page .account-chip {
     max-width: 100%;
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+
+  .account-page input,
+  .account-page select,
+  .account-page textarea {
+    font-size: 16px;
+    min-height: 48px;
   }
 
   .account-stats {

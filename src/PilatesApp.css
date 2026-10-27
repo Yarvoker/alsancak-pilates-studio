@@ -25,6 +25,8 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 90px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -1161,7 +1163,8 @@ textarea {
 
   .hero-copy h1 {
     max-width: 100%;
-    font-size: clamp(2.8rem, 15vw, 4.2rem);
+    font-size: clamp(2.35rem, 11vw, 3.5rem);
+    line-height: 0.98;
   }
 
   .hero-text {
@@ -1222,26 +1225,13 @@ textarea {
 
 @media (max-width: 640px) {
   .section {
-    width: min(var(--max-width), calc(100% - 24px));
-    padding: 72px 0;
-  }
-
-  .topbar {
-    flex-wrap: wrap;
-    justify-content: center;
-    padding: 10px 0 14px;
-  }
-
-  .main-nav {
-    order: 3;
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
+    width: min(var(--max-width), calc(100% - 28px));
+    padding: 56px 0;
   }
 
   .contact-dock {
     right: 12px;
-    bottom: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
     left: 12px;
     flex-direction: row;
   }
@@ -1249,12 +1239,29 @@ textarea {
   .contact-dock-link {
     flex: 1;
     width: auto;
-    height: 58px;
+    height: 52px;
     border-radius: 16px;
   }
 
   .site-footer {
-    padding-bottom: 82px;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+
+  .price-card,
+  .class-card--text-only {
+    min-height: 0;
+  }
+
+  .card-image {
+    height: 220px;
+  }
+
+  .trainer-photo {
+    height: min(360px, 78vw);
+  }
+
+  .gallery-image {
+    height: 240px;
   }
 
   .pricing-grid {
@@ -1267,10 +1274,12 @@ textarea {
 
   .hero-actions {
     justify-content: center;
+    width: 100%;
   }
 
   .cta-primary {
     width: 100%;
+    max-width: none;
   }
 
   .compact {
@@ -1284,20 +1293,12 @@ textarea {
   }
 
   .hero-video-frame {
-    width: min(310px, 82vw);
+    width: min(340px, 100%);
   }
 
   .trainer-photo,
   .card-image {
     border-radius: 20px;
-  }
-
-  .trainer-photo {
-    height: 420px;
-  }
-
-  .gallery-image {
-    height: 280px;
   }
 
 }
@@ -1562,5 +1563,157 @@ textarea {
   .admin-block,
   .admin-feedback {
     width: min(1100px, calc(100% - 24px));
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    scroll-padding-top: 128px;
+  }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: stretch;
+    gap: 4px 10px;
+    width: 100%;
+    min-height: 0;
+    padding: calc(8px + env(safe-area-inset-top)) 14px 0;
+  }
+
+  .brand {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand-text {
+    min-width: 0;
+  }
+
+  .brand-text strong,
+  .brand-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brand-text strong {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+  }
+
+  .header-actions {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .admin-entry.admin-entry--bar {
+    display: none;
+  }
+
+  .account-chip.account-chip--bar {
+    display: inline-flex;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+  }
+
+  .account-chip.account-chip--nav {
+    display: none;
+  }
+
+  .admin-entry.admin-entry--nav {
+    display: inline-flex;
+    min-height: 44px;
+    padding: 0 8px;
+    border: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+  }
+
+  .main-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: auto;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-inline: -4px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .main-nav a {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+  }
+
+  .hero-actions {
+    width: 100%;
+  }
+
+  .selector-row {
+    width: 100%;
+  }
+
+  .selector {
+    flex: 1 1 140px;
+    min-height: 48px;
+    padding: 0 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .day-row {
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+  }
+
+  .day-chip {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 0.9rem;
+    scroll-snap-align: start;
+  }
+
+  .time-slot {
+    min-height: 72px;
+  }
+
+  .time-kind,
+  .time-slot small {
+    font-size: 0.8rem;
   }
 }
