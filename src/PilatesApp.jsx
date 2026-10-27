@@ -44,7 +44,7 @@ function accountInitials(profile, user) {
 
 const disciplineButtons = [
   'Reformer Pilates',
-  'Fonksiyonel + Crossfit',
+  'Fonksiyonel Pilates',
   'TRX',
 ]
 
@@ -59,7 +59,7 @@ const disciplines = [
   },
   {
     id: 'functional-crossfit',
-    title: 'Fonksiyonel + Crossfit',
+    title: 'Fonksiyonel Pilates',
     description: 'Günlük hareketleri güçlendiren, enerji yükselten ve dayanıklılığı artıran akış.',
     badge: 'Max 8',
   },
