@@ -4,6 +4,7 @@ import { cancelReservation, messageOf } from '../booking/bookingApi.js'
 import {
   fetchMemberExport,
   fetchMemberHistory,
+  contactAlreadyStored,
   notifyMemberChanged,
   requestAccountDeletion,
   updateMemberProfile,
@@ -317,9 +318,7 @@ function AccountPage({ user, onUser }) {
 
   const profile = data?.profile
   const profileComplete = data?.profile_complete === true
-  const profileFilled = ['first_name', 'last_name'].every((key) => String(profile?.[key] || '').trim().length >= 2)
-    && String(profile?.email || user?.email || '').trim().includes('@')
-    && String(profile?.phone_masked || '').trim().length > 0
+  const profileFilled = contactAlreadyStored(profile, user?.email).complete
   const pack = data?.package
   const activePackage = pack?.status === 'active'
   const remaining = pack?.credits_remaining ?? 0

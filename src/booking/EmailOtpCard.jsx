@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { completeMemberProfile } from './dashboardApi.js'
+import { completeMemberProfile, contactAlreadyStored } from './dashboardApi.js'
 import { messageOf } from './bookingApi.js'
 import { maskTrMobile, normalizePhone } from './phone.js'
 import { validPersonName } from './sheetFlow.js'
@@ -333,13 +333,14 @@ function EmailOtpCard({
 
   async function submitProfile(event) {
     event.preventDefault()
-    const nextFirst = firstName.trim()
-    const nextLast = lastName.trim()
-    const nextPhone = normalizePhone(phone)
-    const nextNameError = validPersonName(nextFirst) && validPersonName(nextLast)
+    const stored = contactAlreadyStored(profile)
+    const nextFirst = stored.namesStored ? stored.firstName : firstName.trim()
+    const nextLast = stored.namesStored ? stored.lastName : lastName.trim()
+    const nextPhone = stored.phoneStored ? '' : normalizePhone(phone)
+    const nextNameError = stored.namesStored || (validPersonName(nextFirst) && validPersonName(nextLast))
       ? ''
       : 'İsim ve soyisim gerekli'
-    const nextPhoneError = nextPhone ? '' : 'Telefon numarası geçersiz'
+    const nextPhoneError = stored.phoneStored || nextPhone ? '' : 'Telefon numarası geçersiz'
     const nextKvkkError = kvkk ? '' : 'KVKK onayı gerekli'
     setNameError(nextNameError)
     setPhoneError(nextPhoneError)
@@ -373,58 +374,63 @@ function EmailOtpCard({
   if (!visible && !showProfile) return null
 
   if (showProfile) {
+    const stored = contactAlreadyStored(profile)
     return (
       <section className="member-auth email-otp-card account-card" aria-label="Bilgilerini tamamla">
         <p className="eyebrow">KAYIT</p>
-        <h1>Bilgilerini tamamla</h1>
+        <h1>{stored.complete ? 'KVKK onayı' : 'Bilgilerini tamamla'}</h1>
         <form onSubmit={submitProfile}>
-          <div className="account-fields">
-            <label>
-              Ad
-              <input
-                name="given-name"
-                autoComplete="given-name"
-                maxLength={40}
-                value={firstName}
-                onChange={(event) => {
-                  setFirstName(event.target.value)
-                  setNameError('')
-                }}
-                required
-              />
-            </label>
-            <label>
-              Soyad
-              <input
-                name="family-name"
-                autoComplete="family-name"
-                maxLength={40}
-                value={lastName}
-                onChange={(event) => {
-                  setLastName(event.target.value)
-                  setNameError('')
-                }}
-                required
-              />
-            </label>
-          </div>
+          {!stored.namesStored && (
+            <div className="account-fields">
+              <label>
+                Ad
+                <input
+                  name="given-name"
+                  autoComplete="given-name"
+                  maxLength={40}
+                  value={firstName}
+                  onChange={(event) => {
+                    setFirstName(event.target.value)
+                    setNameError('')
+                  }}
+                  required
+                />
+              </label>
+              <label>
+                Soyad
+                <input
+                  name="family-name"
+                  autoComplete="family-name"
+                  maxLength={40}
+                  value={lastName}
+                  onChange={(event) => {
+                    setLastName(event.target.value)
+                    setNameError('')
+                  }}
+                  required
+                />
+              </label>
+            </div>
+          )}
           {nameError && <p className="field-error" role="alert">{nameError}</p>}
-          <label>
-            Telefon
-            <input
-              type="tel"
-              name="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="05xx xxx xx xx"
-              value={phone}
-              onChange={(event) => {
-                setPhone(maskTrMobile(event.target.value))
-                setPhoneError('')
-              }}
-              required
-            />
-          </label>
+          {!stored.phoneStored && (
+            <label>
+              Telefon
+              <input
+                type="tel"
+                name="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="05xx xxx xx xx"
+                value={phone}
+                onChange={(event) => {
+                  setPhone(maskTrMobile(event.target.value))
+                  setPhoneError('')
+                }}
+                required
+              />
+            </label>
+          )}
           {phoneError && <p className="field-error" role="alert">{phoneError}</p>}
           <label className="kvkk-check">
             <input

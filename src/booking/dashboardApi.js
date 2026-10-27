@@ -38,6 +38,22 @@ export async function fetchMemberHistory(before, limit = 50) {
   return data ?? []
 }
 
+export function contactAlreadyStored(profile, email = '') {
+  const firstName = String(profile?.first_name || '').trim()
+  const lastName = String(profile?.last_name || '').trim()
+  const namesStored = firstName.length >= 2 && lastName.length >= 2
+  const phoneStored = String(profile?.phone_masked || '').trim().length > 0
+  const emailStored = String(profile?.email || email || '').trim().includes('@')
+  return {
+    firstName,
+    lastName,
+    namesStored,
+    phoneStored,
+    emailStored,
+    complete: namesStored && phoneStored && emailStored,
+  }
+}
+
 export async function completeMemberProfile({ firstName, lastName, phone, kvkk }) {
   const { data, error } = await supabase.rpc('complete_member_profile', {
     p_first_name: firstName,
