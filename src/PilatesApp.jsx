@@ -136,10 +136,12 @@ function PilatesApp() {
               {label}
             </a>
           ))}
+          <a className="admin-entry admin-entry--nav" href="/admin">Admin Girişi</a>
           {accountChip('account-chip account-chip--nav')}
         </nav>
 
         <div className="header-actions">
+          <a className="admin-entry admin-entry--bar" href="/admin">Admin Girişi</a>
           {accountChip('account-chip account-chip--bar')}
         </div>
       </header>
@@ -291,9 +293,6 @@ function PilatesApp() {
       </main>
 
       <footer className="site-footer">
-        <div className="footer-meta">
-          <a className="admin-entry" href="/admin">Admin Girişi</a>
-        </div>
         <img className="footer-logo" src="/images/logo-yatay-krem.png" alt="Alsancak Pilates Studio" />
       </footer>
 

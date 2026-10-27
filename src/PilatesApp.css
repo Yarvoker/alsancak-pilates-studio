@@ -1011,27 +1011,6 @@ textarea {
   margin: 32px auto 8px;
 }
 
-.footer-meta {
-  width: min(var(--max-width), calc(100% - 48px));
-  margin: 0 auto;
-}
-
-.footer-meta a {
-  color: var(--muted);
-}
-
-.footer-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 24px;
-  margin-top: 18px;
-}
-
-.footer-meta a:hover,
-.footer-meta a:focus-visible {
-  color: var(--gold-soft);
-}
-
 .contact-dock {
   position: fixed;
   right: 20px;
@@ -1268,10 +1247,6 @@ textarea {
     height: 280px;
   }
 
-  .footer-meta {
-    width: min(var(--max-width), calc(100% - 24px));
-  }
-
 }
 
 .member-summary {
@@ -1354,8 +1329,18 @@ textarea {
   color: var(--gold);
 }
 
-.footer-meta .admin-entry {
-  min-height: 36px;
+.admin-entry.admin-entry--nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .admin-entry.admin-entry--bar {
+    display: none;
+  }
+
+  .admin-entry.admin-entry--nav {
+    display: inline-flex;
+  }
 }
 
 .admin-backdrop,
