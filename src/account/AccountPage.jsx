@@ -10,7 +10,7 @@ import {
   updateMemberProfile,
 } from '../booking/dashboardApi.js'
 import EmailOtpCard from '../booking/EmailOtpCard.jsx'
-import { normalizePhone } from '../booking/phone.js'
+import { maskTrMobile, normalizeTrMobile } from '../booking/phone.js'
 import { validPersonName } from '../booking/sheetFlow.js'
 import { formatStudioDate, istanbulDateTime } from '../booking/slotRules.js'
 import { supabase } from '../booking/supabaseClient.js'
@@ -254,9 +254,9 @@ function AccountPage({ user, onUser }) {
       setFormNotice('')
       return
     }
-    const phone = normalizePhone(phoneInput)
+    const phone = normalizeTrMobile(phoneInput)
     if (!phone) {
-      setFormError('Telefon numarası geçersiz')
+      setFormError('Geçerli bir cep telefonu gir (05xx xxx xx xx)')
       setFormNotice('')
       return
     }
@@ -275,7 +275,10 @@ function AccountPage({ user, onUser }) {
       setPhoneInput('')
       setFormNotice('Profilin güncellendi.')
     } catch (error) {
-      setFormError(messageOf(error))
+      const text = messageOf(error)
+      setFormError(text === 'Telefon numarası geçersiz'
+        ? 'Geçerli bir cep telefonu gir (05xx xxx xx xx)'
+        : text)
     } finally {
       setSaveBusy(false)
     }
@@ -335,6 +338,7 @@ function AccountPage({ user, onUser }) {
           visible={false}
           showProfile
           profile={profile}
+          authUser={user}
           onUser={onUser}
           onProfileDone={() => {
             notifyMemberChanged()
@@ -534,38 +538,39 @@ function AccountPage({ user, onUser }) {
             </div>
           </section>
 
-          {!profileFilled && (
           <section className="account-card" aria-labelledby="profile-title">
             <h2 id="profile-title">Profil</h2>
             <form onSubmit={saveProfile}>
-              <div className="account-fields">
-                <label>
-                  İsim
-                  <input
-                    name="given-name"
-                    autoComplete="given-name"
-                    value={firstName}
-                    onChange={(event) => {
-                      dirty.current = true
-                      setFirstName(event.target.value)
-                    }}
-                    required
-                  />
-                </label>
-                <label>
-                  Soyisim
-                  <input
-                    name="family-name"
-                    autoComplete="family-name"
-                    value={lastName}
-                    onChange={(event) => {
-                      dirty.current = true
-                      setLastName(event.target.value)
-                    }}
-                    required
-                  />
-                </label>
-              </div>
+              {!profileFilled && (
+                <div className="account-fields">
+                  <label>
+                    İsim
+                    <input
+                      name="given-name"
+                      autoComplete="given-name"
+                      value={firstName}
+                      onChange={(event) => {
+                        dirty.current = true
+                        setFirstName(event.target.value)
+                      }}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Soyisim
+                    <input
+                      name="family-name"
+                      autoComplete="family-name"
+                      value={lastName}
+                      onChange={(event) => {
+                        dirty.current = true
+                        setLastName(event.target.value)
+                      }}
+                      required
+                    />
+                  </label>
+                </div>
+              )}
               <label>
                 E-posta
                 <input value={profile?.email || user.email || ''} readOnly />
@@ -579,7 +584,11 @@ function AccountPage({ user, onUser }) {
                   autoComplete="tel"
                   placeholder="05xx xxx xx xx"
                   value={phoneInput}
-                  onChange={(event) => setPhoneInput(event.target.value)}
+                  onChange={(event) => {
+                    dirty.current = true
+                    setPhoneInput(maskTrMobile(event.target.value))
+                  }}
+                  required
                 />
               </label>
               {profile?.phone_masked && (
@@ -590,7 +599,6 @@ function AccountPage({ user, onUser }) {
               </button>
             </form>
           </section>
-          )}
 
           <section className="account-card" aria-labelledby="kvkk-title">
             <h2 id="kvkk-title">KVKK</h2>

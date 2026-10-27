@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { completeMemberProfile, contactAlreadyStored } from './dashboardApi.js'
 import { messageOf } from './bookingApi.js'
-import { maskTrMobile, normalizePhone } from './phone.js'
+import { maskTrMobile, normalizeTrMobile } from './phone.js'
 import { validPersonName } from './sheetFlow.js'
 import { supabase } from './supabaseClient.js'
 
@@ -10,6 +10,7 @@ function validEmail(value) {
 }
 
 const AUTH_URL_KEYS = [
+  'code',
   'access_token',
   'refresh_token',
   'type',
@@ -23,6 +24,9 @@ const AUTH_URL_KEYS = [
   'provider_refresh_token',
 ]
 
+const GOOGLE_AUTH_ERROR = 'Google ile giriş yapılamadı, e-posta koduyla devam edebilirsin.'
+const PHONE_ERROR = 'Geçerli bir cep telefonu gir (05xx xxx xx xx)'
+
 function hashParamsOf(hash) {
   const raw = String(hash || '').replace(/^#/, '')
   if (!raw || !raw.includes('=')) return new URLSearchParams()
@@ -35,18 +39,38 @@ function urlCarriesAuth() {
   return AUTH_URL_KEYS.some((key) => search.has(key) || hashParams.has(key))
 }
 
+function namesFromGoogle(user) {
+  const meta = user?.user_metadata || {}
+  let first = String(meta.given_name || '').trim()
+  let last = String(meta.family_name || '').trim()
+  if (!first || !last) {
+    const full = String(meta.full_name || meta.name || '').trim()
+    const parts = full.split(/\s+/).filter(Boolean)
+    if (!first) first = parts.shift() || ''
+    if (!last) last = parts.join(' ')
+  }
+  return { first, last }
+}
+
 function linkErrorCopy(errorCode, errorText) {
   const code = String(errorCode || '').toLowerCase()
   const text = String(errorText || '').toLowerCase()
-  if (
-    code === 'otp_expired'
-    || code === 'access_denied'
-    || text.includes('otp_expired')
-    || text.includes('access_denied')
-  ) {
+  if (code === 'otp_expired' || text.includes('otp_expired')) {
     return 'Link süresi doldu, yeni kod iste'
   }
+  if (code || text) return GOOGLE_AUTH_ERROR
   return ''
+}
+
+function GoogleMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+      <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" />
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
+    </svg>
+  )
 }
 
 function stripAuthFromUrl() {
@@ -176,6 +200,7 @@ function EmailOtpCard({
   scrollOnLink = false,
   showProfile = false,
   profile = null,
+  authUser = null,
   onUser,
   onLinkError,
   onProfileDone,
@@ -198,6 +223,7 @@ function EmailOtpCard({
   const [profileBusy, setProfileBusy] = useState(false)
   const emailRef = useRef(null)
   const codeRef = useRef(null)
+  const profileSeed = useRef(false)
   const onUserRef = useRef(onUser)
   const onLinkErrorRef = useRef(onLinkError)
   const onProfileDoneRef = useRef(onProfileDone)
@@ -247,11 +273,17 @@ function EmailOtpCard({
   }, [resendIn])
 
   useEffect(() => {
-    if (!showProfile) return undefined
-    setFirstName(String(profile?.first_name || '').trim())
-    setLastName(String(profile?.last_name || '').trim())
+    if (!showProfile) {
+      profileSeed.current = false
+      return undefined
+    }
+    if (profileSeed.current) return undefined
+    const google = namesFromGoogle(authUser)
+    setFirstName(String(profile?.first_name || google.first || '').trim())
+    setLastName(String(profile?.last_name || google.last || '').trim())
+    profileSeed.current = true
     return undefined
-  }, [showProfile, profile?.first_name, profile?.last_name])
+  }, [showProfile, profile?.first_name, profile?.last_name, authUser])
 
   useEffect(() => {
     if (!visible || showProfile || codeSent) return undefined
@@ -264,6 +296,40 @@ function EmailOtpCard({
     codeRef.current?.focus()
     return undefined
   }, [visible, showProfile, codeSent])
+
+  async function continueWithGoogle() {
+    setAuthBusy(true)
+    setError('')
+    setNotice('')
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/hesabim`,
+        queryParams: { prompt: 'select_account' },
+        skipBrowserRedirect: true,
+      },
+    })
+    if (oauthError || !data?.url) {
+      setAuthBusy(false)
+      setError(GOOGLE_AUTH_ERROR)
+      return
+    }
+
+    try {
+      const response = await fetch(data.url, { redirect: 'manual' })
+      if (response.status >= 400) {
+        setAuthBusy(false)
+        setError(GOOGLE_AUTH_ERROR)
+        return
+      }
+    } catch {
+      setAuthBusy(false)
+      setError(GOOGLE_AUTH_ERROR)
+      return
+    }
+
+    window.location.assign(data.url)
+  }
 
   async function sendCode() {
     const nextEmail = email.trim().toLowerCase()
@@ -336,11 +402,11 @@ function EmailOtpCard({
     const stored = contactAlreadyStored(profile)
     const nextFirst = stored.namesStored ? stored.firstName : firstName.trim()
     const nextLast = stored.namesStored ? stored.lastName : lastName.trim()
-    const nextPhone = stored.phoneStored ? '' : normalizePhone(phone)
+    const nextPhone = stored.phoneStored ? '' : normalizeTrMobile(phone)
     const nextNameError = stored.namesStored || (validPersonName(nextFirst) && validPersonName(nextLast))
       ? ''
       : 'İsim ve soyisim gerekli'
-    const nextPhoneError = stored.phoneStored || nextPhone ? '' : 'Telefon numarası geçersiz'
+    const nextPhoneError = stored.phoneStored || nextPhone ? '' : PHONE_ERROR
     const nextKvkkError = kvkk ? '' : 'KVKK onayı gerekli'
     setNameError(nextNameError)
     setPhoneError(nextPhoneError)
@@ -357,13 +423,13 @@ function EmailOtpCard({
       })
       const status = result?.status
       if (status === 'pending_link') {
-        setPhoneError('Bu telefon numarası kayıtlı, stüdyo onayından sonra hesabına bağlanacak')
+        setPhoneError('Bu numara kayıtlı, stüdyo onayından sonra hesabına bağlanacak')
         return
       }
       onProfileDoneRef.current?.(status)
     } catch (profileError) {
       const text = messageOf(profileError)
-      if (text === 'Telefon numarası geçersiz') setPhoneError(text)
+      if (text === 'Telefon numarası geçersiz') setPhoneError(PHONE_ERROR)
       else if (text === 'KVKK onayı gerekli') setKvkkError(text)
       else setNameError(text)
     } finally {
@@ -413,6 +479,10 @@ function EmailOtpCard({
             </div>
           )}
           {nameError && <p className="field-error" role="alert">{nameError}</p>}
+          <label>
+            E-posta
+            <input value={authUser?.email || profile?.email || ''} readOnly />
+          </label>
           {!stored.phoneStored && (
             <label>
               Telefon
@@ -475,7 +545,19 @@ function EmailOtpCard({
       <h1>Giriş yap</h1>
       {!codeSent ? (
         <div className="field-row">
-          <p className="booking-note">E-postana giriş bağlantısı göndereceğiz. Bağlantı Hesabım sayfasını açar.</p>
+          <button
+            type="button"
+            className="google-auth"
+            onClick={continueWithGoogle}
+            disabled={authBusy}
+            aria-busy={authBusy}
+          >
+            <GoogleMark />
+            Google ile devam et
+          </button>
+          {error && <p className="field-error" role="alert">{error}</p>}
+          <div className="auth-or" role="separator">veya</div>
+          <p className="booking-note">E-postana 6 haneli bir giriş kodu göndereceğiz.</p>
           <label>
             E-posta
             <input
@@ -492,7 +574,6 @@ function EmailOtpCard({
               }}
             />
           </label>
-          {error && <p className="field-error" role="alert">{error}</p>}
           <button
             type="button"
             className="cta cta-form"

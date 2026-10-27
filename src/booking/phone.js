@@ -9,6 +9,12 @@ export function normalizePhone(input) {
   return null
 }
 
+export function normalizeTrMobile(input) {
+  const phone = normalizePhone(input)
+  if (!phone || !/^\+905\d{9}$/.test(phone)) return null
+  return phone
+}
+
 export function maskTrMobile(input) {
   let digits = String(input ?? '').replace(/\D/g, '')
   if (digits.startsWith('90') && digits.length > 10) digits = digits.slice(2)

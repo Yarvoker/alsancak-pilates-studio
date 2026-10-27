@@ -343,6 +343,7 @@ function AdminGate({ onClose }) {
                   <th>Adı</th>
                   <th>Soyadı</th>
                   <th>Telefon</th>
+                  <th>Giriş</th>
                   <th>Aktif paket</th>
                   <th>Kalan kredi</th>
                   <th>Hesap</th>
@@ -356,6 +357,7 @@ function AdminGate({ onClose }) {
                       <td>{name.firstName}</td>
                       <td>{name.lastName}</td>
                       <td>{client.phone || '—'}</td>
+                      <td>{client.sign_in_method || '—'}</td>
                       <td>
                         {packageRows(client).length === 0 ? packageLabel(client) : packageRows(client).map((item) => (
                           <span className="admin-package" key={item.id || `${item.name}-${item.starts_on}`}>
@@ -387,7 +389,9 @@ function AdminGate({ onClose }) {
               {' · '}
               {detail.data.profile?.email || '—'}
               {' · '}
-              {detail.data.profile?.phone_masked || '—'}
+              {detail.data.profile?.phone || detail.data.profile?.phone_masked || '—'}
+              {' · '}
+              {detail.data.profile?.sign_in_method || '—'}
             </p>
             <p>
               Paket: {detail.data.package?.status === 'active' ? detail.data.package?.name : 'Aktif paketin yok'}
