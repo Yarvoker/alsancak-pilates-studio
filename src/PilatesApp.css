@@ -1229,22 +1229,8 @@ textarea {
     padding: 56px 0;
   }
 
-  .contact-dock {
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    left: 12px;
-    flex-direction: row;
-  }
-
-  .contact-dock-link {
-    flex: 1;
-    width: auto;
-    height: 52px;
-    border-radius: 16px;
-  }
-
   .site-footer {
-    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+    padding-bottom: 80px;
   }
 
   .price-card,
@@ -1346,12 +1332,8 @@ textarea {
 }
 
 @media (max-width: 768px) {
-  .account-chip--bar {
-    display: none;
-  }
-
   .account-chip--nav {
-    display: inline-flex;
+    display: none;
   }
 }
 
@@ -1359,6 +1341,82 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.menu-toggle {
+  display: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--cream);
+}
+
+.menu-toggle-icon,
+.menu-toggle-icon::before,
+.menu-toggle-icon::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.menu-toggle-icon {
+  position: relative;
+}
+
+.menu-toggle-icon::before,
+.menu-toggle-icon::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.menu-toggle-icon::before {
+  top: -6px;
+}
+
+.menu-toggle-icon::after {
+  top: 6px;
+}
+
+.menu-toggle[aria-expanded='true'] .menu-toggle-icon {
+  background: transparent;
+}
+
+.menu-toggle[aria-expanded='true'] .menu-toggle-icon::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.menu-toggle[aria-expanded='true'] .menu-toggle-icon::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mobile-menu {
+  display: none;
+}
+
+.contact-social,
+.footer-social {
+  display: none;
 }
 
 .admin-entry {
@@ -1568,30 +1626,35 @@ textarea {
 
 @media (max-width: 768px) {
   html {
-    scroll-padding-top: 128px;
+    scroll-padding-top: 0;
+  }
+
+  .section {
+    scroll-margin-top: 72px;
   }
 
   .topbar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    justify-content: stretch;
-    gap: 4px 10px;
+    justify-content: space-between;
+    gap: 8px;
     width: 100%;
+    z-index: 40;
+    height: 64px;
+    max-height: 64px;
     min-height: 0;
-    padding: calc(8px + env(safe-area-inset-top)) 14px 0;
+    padding: 0 12px;
   }
 
   .brand {
-    grid-column: 1;
-    grid-row: 1;
     min-width: 0;
     gap: 8px;
   }
 
   .brand-mark {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .brand-text {
@@ -1610,68 +1673,115 @@ textarea {
     letter-spacing: 0.06em;
   }
 
-  .header-actions {
-    display: flex;
-    grid-column: 2;
-    grid-row: 1;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
-  }
-
-  .admin-entry.admin-entry--bar {
-    display: none;
-  }
-
-  .account-chip.account-chip--bar {
-    display: inline-flex;
-    min-height: 40px;
-    padding: 0 12px;
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-  }
-
-  .account-chip.account-chip--nav {
-    display: none;
-  }
-
-  .admin-entry.admin-entry--nav {
-    display: inline-flex;
-    min-height: 44px;
-    padding: 0 8px;
-    border: 0;
-    font-size: 0.72rem;
+  .brand-text small {
+    font-size: 0.62rem;
     letter-spacing: 0.04em;
   }
 
   .main-nav {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: auto;
-    justify-content: space-between;
-    flex-wrap: nowrap;
-    gap: 4px;
-    margin-inline: -4px;
-    padding-bottom: 6px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .main-nav::-webkit-scrollbar {
     display: none;
   }
 
-  .main-nav a {
-    display: inline-flex;
-    flex: 0 0 auto;
+  .header-actions {
+    flex: none;
+    gap: 2px;
+  }
+
+  .account-chip.account-chip--bar {
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+  }
+
+  .menu-toggle {
+    display: grid;
+  }
+
+  .mobile-menu {
+    position: fixed;
+    z-index: 35;
+    top: 64px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 18px 22px 32px;
+    overflow: auto;
+    background: #0d1f1a;
+  }
+
+  .mobile-menu a {
+    display: flex;
     align-items: center;
-    min-height: 44px;
-    padding: 0 6px;
-    font-size: 0.72rem;
+    min-height: 52px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--cream);
+    font-size: 1.15rem;
     letter-spacing: 0.04em;
+    text-transform: none;
+  }
+
+  .contact-dock {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    left: auto;
+    flex-direction: column;
+  }
+
+  .contact-dock-link--instagram {
+    display: none;
+  }
+
+  .contact-dock-link--whatsapp {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  }
+
+  .contact-dock-link--whatsapp svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  body.menu-open .contact-dock,
+  body:has(.login-modal-backdrop) .contact-dock,
+  body:has(.account-modal-backdrop) .contact-dock,
+  body:has(.slot-sheet) .contact-dock {
+    display: none;
+  }
+
+  .site-footer {
+    padding-bottom: 80px;
+  }
+
+  .contact-social,
+  .footer-social {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    color: var(--cream);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+  }
+
+  .contact-social {
+    margin-top: 18px;
+  }
+
+  .contact-social svg,
+  .footer-social svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .footer-social {
+    width: fit-content;
+    margin: 0 auto 8px;
   }
 
   .hero-actions {

@@ -129,15 +129,39 @@ function PilatesApp() {
   const [activeDiscipline, setActiveDiscipline] = useState(disciplines[0])
   const [authUser, setAuthUser] = useState(null)
   const [hash, setHash] = useState(() => window.location.hash)
+  const [menuOpen, setMenuOpen] = useState(false)
   const { data: dashboard } = useMemberDashboard(authUser)
   const checkoutOpen = onHome && hash === '#odeme'
   const initials = accountInitials(dashboard?.profile, authUser)
+  const sectionHref = (id) => (onHome ? `#${id}` : `/#${id}`)
+  const menuLinks = [
+    ...navItems,
+    ['Rezervasyon', 'iletisim'],
+    ['İletişim', 'iletisim'],
+  ]
 
   useEffect(() => {
     const sync = () => setHash(window.location.hash)
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
   }, [])
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname, location.hash])
+
+  useEffect(() => {
+    if (!menuOpen) return undefined
+    const onKey = (event) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.body.classList.add('menu-open')
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.classList.remove('menu-open')
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
 
   const accountChip = (className) => (
     <a className={className} href="/hesabim">
@@ -164,19 +188,39 @@ function PilatesApp() {
 
         <nav className="main-nav" aria-label="Ana menü">
           {navItems.map(([label, id]) => (
-            <a key={id} href={onHome ? `#${id}` : `/#${id}`}>
+            <a key={id} href={sectionHref(id)}>
               {label}
             </a>
           ))}
-          <a className="admin-entry admin-entry--nav" href="/admin">Admin Girişi</a>
-          {accountChip('account-chip account-chip--nav')}
         </nav>
 
         <div className="header-actions">
-          <a className="admin-entry admin-entry--bar" href="/admin">Admin Girişi</a>
           {accountChip('account-chip account-chip--bar')}
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span className="sr-only">{menuOpen ? 'Menüyü kapat' : 'Menüyü aç'}</span>
+            <span className="menu-toggle-icon" aria-hidden="true" />
+          </button>
         </div>
       </header>
+
+      {menuOpen && (
+        <nav id="mobile-menu" className="mobile-menu" aria-label="Mobil menü">
+          {menuLinks.map(([label, id]) => (
+            <a key={label} href={sectionHref(id)} onClick={() => setMenuOpen(false)}>
+              {label}
+            </a>
+          ))}
+          <a href="/hesabim" onClick={() => setMenuOpen(false)}>
+            {authUser ? 'Hesabım' : 'Giriş yap'}
+          </a>
+        </nav>
+      )}
 
       <main>
         <Routes>
@@ -258,6 +302,10 @@ function PilatesApp() {
           </div>
 
           <BookingPanel authUser={authUser} />
+          <a className="contact-social" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram’da aç">
+            <InstagramIcon />
+            <span>Instagram</span>
+          </a>
         </section>
 
         <section className="trainer section" id="egitmen">
@@ -348,6 +396,10 @@ function PilatesApp() {
 
       <footer className="site-footer">
         <img className="footer-logo" src="/images/logo-yatay-krem.png" alt="Alsancak Pilates Studio" />
+        <a className="footer-social" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram’da aç">
+          <InstagramIcon />
+          <span>Instagram</span>
+        </a>
       </footer>
 
       <div className="contact-dock">
