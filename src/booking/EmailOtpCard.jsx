@@ -216,7 +216,6 @@ function EmailOtpCard({
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [kvkk, setKvkk] = useState(false)
-  const [kvkkOpen, setKvkkOpen] = useState(false)
   const [nameError, setNameError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [kvkkError, setKvkkError] = useState('')
@@ -513,23 +512,9 @@ function EmailOtpCard({
             />
             <span>
               KVKK metnini okudum ve kabul ediyorum.{' '}
-              <a
-                href="#kvkk-aydinlatma"
-                onClick={(event) => {
-                  event.preventDefault()
-                  setKvkkOpen(true)
-                }}
-              >
-                Aydınlatma metni
-              </a>
+              <a href="/gizlilik">Aydınlatma metni</a>
             </span>
           </label>
-          {kvkkOpen && (
-            <p id="kvkk-aydinlatma" className="booking-note">
-              Ad, soyad, telefon ve e-posta adresin ders kaydı, hatırlatma ve stüdyo iletişimi için işlenir.
-              Verilerini Hesabım’dan indirebilir veya silinmesini isteyebilirsin.
-            </p>
-          )}
           {kvkkError && <p className="field-error" role="alert">{kvkkError}</p>}
           <button type="submit" className="cta cta-form" disabled={profileBusy} aria-busy={profileBusy}>
             {profileBusy ? 'Kaydediliyor' : 'Kaydı tamamla'}

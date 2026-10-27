@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import AccountPage from './account/AccountPage.jsx'
+import PrivacyPage from './PrivacyPage.jsx'
 import AdminGate from './admin/AdminGate.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
 import EmailOtpCard from './booking/EmailOtpCard.jsx'
@@ -226,6 +227,7 @@ function PilatesApp() {
         <Routes>
           <Route path="/admin" element={<AdminRoute />} />
           <Route path="/hesabim" element={<AccountPage user={authUser} onUser={setAuthUser} />} />
+          <Route path="/gizlilik" element={<PrivacyPage />} />
           <Route path="/" element={<>
         {checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
