@@ -155,7 +155,7 @@ function PilatesApp() {
       <EmailOtpCard visible={false} scrollOnLink={false} onUser={setAuthUser} />
       <header className="topbar">
         <a className="brand" href={onHome ? '#ana-sayfa' : '/#ana-sayfa'} aria-label="Alsancak Pilates Studio ana sayfa">
-          <img className="brand-mark" src="/images/alsancak-pilates-logo.jpg" alt="Alsancak Pilates Studio logo" />
+          <img className="brand-mark" src="/images/ikon-yuvarlak.png" alt="Alsancak Pilates Studio logo" />
           <span className="brand-text">
             <strong>Alsancak</strong>
             <small>Pilates Studio</small>
