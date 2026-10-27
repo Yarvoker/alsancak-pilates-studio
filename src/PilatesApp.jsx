@@ -285,21 +285,6 @@ function PilatesApp() {
             ))}
           </div>
         </section>
-
-        <section className="final-cta section">
-          <div className="final-cta-box">
-            <div>
-              <p className="eyebrow dark">BİR SONRAKİ ADIM</p>
-              <h2>Bir sonraki adım, sana ait.</h2>
-              <p>
-                Alsancak, İzmir’de program, saat ve kayıt bilgileri için stüdyoya Instagram’dan yaz.
-              </p>
-            </div>
-            <a className="cta cta-primary dark" href="#iletisim">
-              Rezervasyon Yap
-            </a>
-          </div>
-        </section>
         </>)}
           </>} />
         </Routes>
