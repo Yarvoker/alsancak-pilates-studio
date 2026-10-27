@@ -78,10 +78,49 @@ const galleryItems = [
   { title: 'Mat', src: '/images/private-session.jpg', alt: 'Eğitmen eşliğinde birebir Pilates seansı' },
 ]
 
+const tlFormat = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 })
+
+function formatTl(amount) {
+  return `${tlFormat.format(amount)} TL`
+}
+
+function perLessonLine(item) {
+  const each = Math.round(item.amount / item.lessons)
+  const prefix = item.approximate ? 'Ders başı yaklaşık' : 'Ders başı'
+  return `${prefix} ${formatTl(each)}`
+}
+
 const pricing = [
-  { type: 'Deneme Seansı', price: 'Bilgi için yazın', description: 'İlk görüşme ve hareket analizi', accent: false },
-  { type: '8’li Paket', price: 'Bilgi için yazın', description: 'Düzenli ilerleme için odaklı seans', accent: true },
-  { type: 'Aylık Üyelik', price: 'Bilgi için yazın', description: 'Sınırsız planlama ve esnek paketler', accent: false },
+  {
+    id: 'trial',
+    label: 'DENEME DERSİ',
+    title: 'Deneme dersi için kayıt olun',
+    description: 'Tanışma, duruş ve hareket analiziyle size uygun programı birlikte belirleyelim.',
+    action: 'Deneme dersi ayır',
+  },
+  {
+    id: 'pack-8',
+    label: '8 DERSLİK PAKET',
+    amount: 8000,
+    lessons: 8,
+    description: 'Haftada 2 derse uygun, düzenli ilerleme için ideal başlangıç paketi.',
+  },
+  {
+    id: 'pack-12',
+    label: '12 DERSLİK PAKET',
+    amount: 11500,
+    lessons: 12,
+    approximate: true,
+    badge: 'En avantajlı',
+    featured: true,
+    description: 'Daha sık çalışmak ve hızlı sonuç almak isteyenler için.',
+  },
+  {
+    id: 'private',
+    label: 'ÖZEL DERS',
+    title: 'Fiyat için bize ulaşın',
+    description: 'Size özel planlanan birebir seanslarla kişisel hedeflerinize odaklanın.',
+  },
 ]
 
 const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman', 'TRX']
@@ -279,13 +318,35 @@ function PilatesApp() {
 
           <div className="pricing-grid">
             {pricing.map((item) => (
-              <article key={item.type} className={item.accent ? 'price-card featured' : 'price-card'}>
-                <p className="price-type">{item.type}</p>
-                <div className="price-value">{item.price}</div>
+              <article key={item.id} className={item.featured ? 'price-card featured' : 'price-card'}>
+                <div className="price-kicker">
+                  <p className="price-type">{item.label}</p>
+                  {item.badge ? <span className="price-badge">{item.badge}</span> : null}
+                </div>
+                <div className="price-value">{item.amount ? formatTl(item.amount) : item.title}</div>
+                {item.lessons ? <p className="price-unit">{perLessonLine(item)}</p> : null}
                 <p className="price-text">{item.description}</p>
+                {item.action ? (
+                  authUser && dashboard?.profile_complete === true ? (
+                    <button
+                      type="button"
+                      className="cta cta-primary price-action"
+                      onClick={() => document.querySelector('section.booking')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    >
+                      {item.action}
+                    </button>
+                  ) : (
+                    <a className="cta cta-primary price-action" href="/hesabim?next=book">
+                      {item.action}
+                    </a>
+                  )
+                ) : null}
               </article>
             ))}
           </div>
+          <p className="pricing-note">
+            Paket dersleri satın alma tarihinden itibaren belirlenen süre içinde kullanılır. Derse 24 saatten az kala yapılan iptallerde ders hakkı kullanılmış sayılır.
+          </p>
         </section>
         </>)}
           </>} />
