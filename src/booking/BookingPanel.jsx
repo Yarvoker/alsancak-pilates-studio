@@ -21,6 +21,7 @@ import {
   sheetFor,
 } from './sheetFlow.js'
 import {
+  addIsoDays,
   formatStudioDate,
   formatStudioWhen,
   istanbulDateTime,
@@ -28,7 +29,7 @@ import {
   isSlotFull,
   openingMinutes,
   slotStarts,
-  studioDatesForWeek,
+  todayIso,
 } from './slotRules.js'
 
 const initialClock = Date.now()
@@ -39,14 +40,44 @@ try {
   // Private browsing can reject storage. Auth still lives in the Supabase session.
 }
 
-function dayChipLabel(isoDate) {
+function dayChipParts(isoDate) {
   const [year, month, day] = isoDate.split('-').map(Number)
-  return new Intl.DateTimeFormat('tr-TR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(year, month - 1, day)))
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return {
+    weekday: new Intl.DateTimeFormat('tr-TR', { weekday: 'short', timeZone: 'UTC' }).format(date),
+    date: new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date),
+  }
+}
+
+function dayIsEmpty(isoDate, now) {
+  return !slotStarts(isoDate).some((time) => !isPastSlot(isoDate, time, now))
+}
+
+function centerDay(row, chip, behavior) {
+  if (!row || !chip) return false
+  const rowRect = row.getBoundingClientRect()
+  const chipRect = chip.getBoundingClientRect()
+  const delta = (chipRect.left + chipRect.width / 2) - (rowRect.left + rowRect.width / 2)
+  const max = Math.max(0, row.scrollWidth - row.clientWidth)
+  const left = Math.min(max, Math.max(0, row.scrollLeft + delta))
+  if (Math.abs(row.scrollLeft - left) < 2) return false
+  row.scrollTo({ left, behavior })
+  return true
+}
+
+function centeredIso(row, chips) {
+  const mid = row.getBoundingClientRect().left + row.clientWidth / 2
+  let best = ''
+  let bestDist = Infinity
+  chips.forEach((chip, isoDate) => {
+    const rect = chip.getBoundingClientRect()
+    const dist = Math.abs(rect.left + rect.width / 2 - mid)
+    if (dist < bestDist) {
+      bestDist = dist
+      best = isoDate
+    }
+  })
+  return best
 }
 
 function slotsAt(slots, isoDate, time) {
@@ -93,10 +124,15 @@ function clearPendingSlot() {
 }
 
 function BookingPanel({ authUser = null }) {
-  const dates = useMemo(() => studioDatesForWeek(), [])
+  const dates = useMemo(() => {
+    const start = todayIso()
+    return Array.from({ length: 7 }, (_, index) => addIsoDays(start, index))
+  }, [])
   const [loginPrompt, setLoginPrompt] = useState(false)
   const [memberState, setMemberState] = useState(null)
-  const [selectedDate, setSelectedDate] = useState(dates[0])
+  const [selectedDate, setSelectedDate] = useState(
+    () => dates.find((isoDate) => openingMinutes(isoDate) !== null) ?? dates[0],
+  )
   const [slots, setSlots] = useState([])
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [sheet, setSheet] = useState(null)
@@ -113,7 +149,14 @@ function BookingPanel({ authUser = null }) {
   const sheetRef = useRef(null)
   const authUserRef = useRef(authUser)
   const loginLinkRef = useRef(null)
+  const dayRowRef = useRef(null)
+  const dayChipRefs = useRef(new Map())
+  const selectedDateRef = useRef(selectedDate)
+  const chooseDayRef = useRef(() => {})
+  const programmaticScroll = useRef(false)
+  const didCenter = useRef(false)
   authUserRef.current = authUser
+  selectedDateRef.current = selectedDate
 
   const member = memberState?.member ?? null
   const times = slotStarts(selectedDate)
@@ -173,6 +216,56 @@ function BookingPanel({ authUser = null }) {
     loginLinkRef.current?.focus()
     return undefined
   }, [loginPrompt])
+
+  useEffect(() => {
+    const row = dayRowRef.current
+    const chip = dayChipRefs.current.get(selectedDate)
+    const behavior = didCenter.current ? 'smooth' : 'auto'
+    didCenter.current = true
+    const moved = centerDay(row, chip, behavior)
+    if (!moved) {
+      programmaticScroll.current = false
+      return undefined
+    }
+    programmaticScroll.current = true
+    const release = window.setTimeout(() => {
+      programmaticScroll.current = false
+    }, behavior === 'smooth' ? 480 : 80)
+    return () => window.clearTimeout(release)
+  }, [selectedDate])
+
+  useEffect(() => {
+    const row = dayRowRef.current
+    if (!row) return undefined
+    let timer = 0
+    const settle = () => {
+      const isoDate = centeredIso(row, dayChipRefs.current)
+      if (!isoDate || isoDate === selectedDateRef.current) return
+      chooseDayRef.current(isoDate)
+    }
+    const queueSettle = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(settle, 120)
+    }
+    const onScroll = () => {
+      if (programmaticScroll.current) return
+      queueSettle()
+    }
+    const onScrollEnd = () => {
+      if (programmaticScroll.current) {
+        programmaticScroll.current = false
+        return
+      }
+      queueSettle()
+    }
+    row.addEventListener('scroll', onScroll, { passive: true })
+    row.addEventListener('scrollend', onScrollEnd)
+    return () => {
+      row.removeEventListener('scroll', onScroll)
+      row.removeEventListener('scrollend', onScrollEnd)
+      window.clearTimeout(timer)
+    }
+  }, [])
 
   useEffect(() => {
     if (!authUser || !memberState || slotsBusy) return undefined
@@ -460,31 +553,102 @@ function BookingPanel({ authUser = null }) {
   const savedNotice = notice === 'Yerin tutuldu.'
     || notice === 'Deneme antrenmanın bu grup saatine kaydedildi.'
 
+  function chooseDay(isoDate) {
+    if (!dates.includes(isoDate)) return
+    if (isoDate === selectedDateRef.current) {
+      const moved = centerDay(dayRowRef.current, dayChipRefs.current.get(isoDate), 'smooth')
+      programmaticScroll.current = moved
+      if (moved) window.setTimeout(() => { programmaticScroll.current = false }, 480)
+      return
+    }
+    selectedDateRef.current = isoDate
+    setSelectedDate(isoDate)
+    setSelectedSlotId('')
+    setSlotsBusy(true)
+    rememberInquiry(isoDate, 'day')
+    if (checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')) {
+      pickStartDay(isoDate)
+      return
+    }
+    setSheet(null)
+  }
+  chooseDayRef.current = chooseDay
+
+  function moveDay(step) {
+    const index = dates.indexOf(selectedDateRef.current)
+    const next = dates[index + step]
+    if (!next) return
+    chooseDay(next)
+    dayChipRefs.current.get(next)?.focus({ preventScroll: true })
+  }
+
+  function onDayKeyDown(event) {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      moveDay(1)
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      moveDay(-1)
+    }
+  }
+
+  const selectedIndex = Math.max(0, dates.indexOf(selectedDate))
+
   return (
     <div className="booking-form">
       <MemberSummary user={authUser} />
-      <div className="day-row" role="listbox" aria-label="Gün seç">
-        {dates.map((isoDate) => (
-          <button
-            key={isoDate}
-            type="button"
-            className={isoDate === selectedDate ? 'day-chip active' : 'day-chip'}
-            onClick={() => {
-              if (isoDate === selectedDate) return
-              setSelectedDate(isoDate)
-              setSelectedSlotId('')
-              setSlotsBusy(true)
-              rememberInquiry(isoDate, 'day')
-              if (checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')) {
-                pickStartDay(isoDate)
-                return
-              }
-              setSheet(null)
-            }}
-          >
-            {dayChipLabel(isoDate)}
-          </button>
-        ))}
+      <div className="day-scroller">
+        <button
+          type="button"
+          className="day-arrow day-arrow--prev"
+          aria-label="Önceki gün"
+          disabled={selectedIndex === 0}
+          onClick={() => moveDay(-1)}
+        >
+          ‹
+        </button>
+        <div
+          ref={dayRowRef}
+          className="day-row"
+          role="tablist"
+          aria-label="Gün seç"
+          onKeyDown={onDayKeyDown}
+        >
+          {dates.map((isoDate) => {
+            const parts = dayChipParts(isoDate)
+            const empty = dayIsEmpty(isoDate, clock)
+            const selected = isoDate === selectedDate
+            return (
+              <button
+                key={isoDate}
+                ref={(node) => {
+                  if (node) dayChipRefs.current.set(isoDate, node)
+                  else dayChipRefs.current.delete(isoDate)
+                }}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                data-date={isoDate}
+                className={`day-chip${selected ? ' active' : ''}${empty ? ' is-empty' : ''}`}
+                onClick={() => chooseDay(isoDate)}
+              >
+                <span className="day-chip-name">{parts.weekday}</span>
+                <span className="day-chip-date">{parts.date}</span>
+                {empty && <span className="day-chip-note">Ders yok</span>}
+              </button>
+            )
+          })}
+        </div>
+        <button
+          type="button"
+          className="day-arrow day-arrow--next"
+          aria-label="Sonraki gün"
+          disabled={selectedIndex === dates.length - 1}
+          onClick={() => moveDay(1)}
+        >
+          ›
+        </button>
       </div>
 
       <div className="time-grid" aria-busy={slotsBusy}>
