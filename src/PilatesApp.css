@@ -1048,26 +1048,11 @@ textarea {
   margin: 32px auto 8px;
 }
 
-.footer-branding,
 .footer-meta {
   width: min(var(--max-width), calc(100% - 48px));
   margin: 0 auto;
 }
 
-.footer-branding {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 28px;
-}
-
-.footer-name {
-  color: var(--cream);
-  font-size: 1.8rem;
-  letter-spacing: -0.05em;
-}
-
-.footer-address,
 .footer-meta a {
   color: var(--muted);
 }
@@ -1333,7 +1318,6 @@ textarea {
     padding: 28px 20px;
   }
 
-  .footer-branding,
   .footer-meta {
     width: min(var(--max-width), calc(100% - 24px));
   }

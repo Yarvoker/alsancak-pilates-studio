@@ -10,8 +10,6 @@ import './PilatesApp.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
 const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seansı%20hakkında%20bilgi%20almak%20istiyorum'
-const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=Dr.+Mustafa+Enver+Bey+Cad.+K%C3%BClt%C3%BCr+Apt.+No%3A30%2F7+Alsancak+%C4%B0zmir'
-
 function WhatsAppIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -308,14 +306,7 @@ function PilatesApp() {
       </main>
 
       <footer className="site-footer">
-        <div className="footer-branding">
-          <span className="footer-name">Alsancak Pilates Studio</span>
-          <span className="footer-address">Dr. Mustafa Enver Bey Cad. Kültür Apt. No:30/7 Alsancak, İzmir</span>
-        </div>
-
         <div className="footer-meta">
-          <a href="tel:+905302071908">Telefon: 0530 207 19 08</a>
-          <a href={mapsUrl} target="_blank" rel="noreferrer">Google Maps’te görüntüle</a>
           <a className="admin-entry" href="/admin">Admin Girişi</a>
         </div>
         <img className="footer-logo" src="/images/logo-yatay-krem.png" alt="Alsancak Pilates Studio" />
