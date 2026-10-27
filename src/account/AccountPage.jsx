@@ -118,6 +118,7 @@ function AccountPage({ user, onUser }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phoneInput, setPhoneInput] = useState('')
+  const [changingPhone, setChangingPhone] = useState(false)
   const [formError, setFormError] = useState('')
   const [formNotice, setFormNotice] = useState('')
   const dirty = useRef(false)
@@ -254,8 +255,10 @@ function AccountPage({ user, onUser }) {
       setFormNotice('')
       return
     }
-    const phone = normalizeTrMobile(phoneInput)
-    if (!phone) {
+    const phoneStored = contactAlreadyStored(data?.profile, user?.email).phoneStored
+    const editingPhone = !phoneStored || changingPhone
+    const phone = editingPhone ? normalizeTrMobile(phoneInput) : ''
+    if (editingPhone && !phone) {
       setFormError('Geçerli bir cep telefonu gir (05xx xxx xx xx)')
       setFormNotice('')
       return
@@ -273,6 +276,7 @@ function AccountPage({ user, onUser }) {
       dirty.current = false
       notifyMemberChanged()
       setPhoneInput('')
+      setChangingPhone(false)
       setFormNotice('Profilin güncellendi.')
     } catch (error) {
       const text = messageOf(error)
@@ -321,7 +325,10 @@ function AccountPage({ user, onUser }) {
 
   const profile = data?.profile
   const profileComplete = data?.profile_complete === true
-  const profileFilled = contactAlreadyStored(profile, user?.email).complete
+  const storedContact = contactAlreadyStored(profile, user?.email)
+  const profileFilled = storedContact.complete
+  const phoneStored = storedContact.phoneStored
+  const editingPhone = !phoneStored || changingPhone
   const pack = data?.package
   const activePackage = pack?.status === 'active'
   const remaining = pack?.credits_remaining ?? 0
@@ -575,28 +582,66 @@ function AccountPage({ user, onUser }) {
                 E-posta
                 <input value={profile?.email || user.email || ''} readOnly />
               </label>
-              <label>
-                Telefon
-                <input
-                  type="tel"
-                  name="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="05xx xxx xx xx"
-                  value={phoneInput}
-                  onChange={(event) => {
-                    dirty.current = true
-                    setPhoneInput(maskTrMobile(event.target.value))
-                  }}
-                  required
-                />
-              </label>
-              {profile?.phone_masked && (
-                <p className="account-meta">Kayıtlı numara: {profile.phone_masked}. Kaydetmek için numarayı yeniden yaz.</p>
+              {editingPhone ? (
+                <label>
+                  Telefon
+                  <input
+                    type="tel"
+                    name="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="05xx xxx xx xx"
+                    value={phoneInput}
+                    onChange={(event) => {
+                      dirty.current = true
+                      setPhoneInput(maskTrMobile(event.target.value))
+                    }}
+                    required
+                  />
+                </label>
+              ) : (
+                <label>
+                  Telefon
+                  <input value={profile.phone_masked} readOnly />
+                </label>
               )}
-              <button type="submit" className="account-button" disabled={saveBusy} aria-busy={saveBusy}>
-                {saveBusy ? 'Kaydediliyor' : 'Kaydet'}
-              </button>
+              {phoneStored && !changingPhone && (
+                <div className="account-actions">
+                  <button
+                    type="button"
+                    className="account-button account-button--quiet"
+                    onClick={() => {
+                      setChangingPhone(true)
+                      setPhoneInput('')
+                      setFormError('')
+                      setFormNotice('')
+                    }}
+                  >
+                    Numarayı değiştir
+                  </button>
+                </div>
+              )}
+              {(editingPhone || !profileFilled) && (
+                <div className="account-actions">
+                  <button type="submit" className="account-button" disabled={saveBusy} aria-busy={saveBusy}>
+                    {saveBusy ? 'Kaydediliyor' : 'Kaydet'}
+                  </button>
+                  {changingPhone && (
+                    <button
+                      type="button"
+                      className="account-button account-button--quiet"
+                      onClick={() => {
+                        setChangingPhone(false)
+                        setPhoneInput('')
+                        setFormError('')
+                      }}
+                      disabled={saveBusy}
+                    >
+                      Vazgeç
+                    </button>
+                  )}
+                </div>
+              )}
             </form>
           </section>
 
