@@ -43,7 +43,7 @@ function accountInitials(profile, user) {
 }
 
 const disciplineButtons = [
-  'Mat & Reformer',
+  'Reformer Pilates',
   'Fonksiyonel + Crossfit',
   'TRX',
 ]
@@ -51,7 +51,7 @@ const disciplineButtons = [
 const disciplines = [
   {
     id: 'mat-reformer',
-    title: 'Mat & Reformer',
+    title: 'Reformer Pilates',
     description: 'Kuvvet, denge ve nefes kontrolünü bir araya getiren kontrollü Pilates seansları.',
     badge: 'Max 6',
     image: '/images/group-reformer.jpg',
