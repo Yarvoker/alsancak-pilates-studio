@@ -430,9 +430,11 @@ function PilatesApp() {
               <div className="contact-details">
                 <p className="eyebrow">İletişim</p>
                 <address className="contact-address">
-                  Dr. Mustafa Enver Bey Cad. Kültür Apt. No:30/7
+                  Alsancak Mahallesi, Talatpaşa Bulvarı No:33/1
                   <br />
-                  Alsancak, İzmir
+                  Kat:1 Daire:1, Harputlu Apt.
+                  <br />
+                  Konak / İzmir
                 </address>
                 <a className="contact-phone" href="tel:+905302071908">0530 207 19 08</a>
               </div>
