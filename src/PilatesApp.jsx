@@ -11,6 +11,9 @@ import './PilatesApp.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
 const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seansı%20hakkında%20bilgi%20almak%20istiyorum'
+const mapsDirectionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=38.4348526,27.1427269'
+const mapsEmbedUrl = 'https://www.google.com/maps?q=38.4348526,27.1427269&z=16&output=embed'
+
 function WhatsAppIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -23,6 +26,14 @@ function InstagramIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path fill="currentColor" d="M8 3h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5zm8 2H8a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3zm-4 3.2A3.8 3.8 0 1 1 8.2 12 3.8 3.8 0 0 1 12 8.2zm0 1.6A2.2 2.2 0 1 0 14.2 12 2.2 2.2 0 0 0 12 9.8zM17.35 6.7a1.05 1.05 0 1 1-1.05 1.05 1.05 1.05 0 0 1 1.05-1.05z" />
+    </svg>
+  )
+}
+
+function MapsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M12 2.2A6.8 6.8 0 0 0 5.2 9c0 5.05 5.46 11.22 6.28 12.14a.72.72 0 0 0 1.04 0C13.34 20.22 18.8 14.05 18.8 9A6.8 6.8 0 0 0 12 2.2zm0 9.3A2.5 2.5 0 1 1 14.5 9 2.5 2.5 0 0 1 12 11.5z" />
     </svg>
   )
 }
@@ -118,6 +129,21 @@ const pricing = [
 ]
 
 const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman']
+
+function ContactChannels() {
+  return (
+    <div className="footer-actions">
+      <a className="footer-action footer-action--whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer">
+        <WhatsAppIcon />
+        <span>WhatsApp'tan yaz</span>
+      </a>
+      <a className="footer-action footer-action--instagram" href={instagramUrl} target="_blank" rel="noreferrer">
+        <InstagramIcon />
+        <span>Instagram</span>
+      </a>
+    </div>
+  )
+}
 
 function AdminRoute() {
   const navigate = useNavigate()
@@ -398,16 +424,44 @@ function PilatesApp() {
 
       <footer className="site-footer">
         <img className="footer-logo" src="/images/logo-yatay-krem.png" alt="Alsancak Pilates Studio" />
-        <div className="footer-actions">
-          <a className="footer-action footer-action--whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer">
-            <WhatsAppIcon />
-            <span>WhatsApp'tan yaz</span>
-          </a>
-          <a className="footer-action footer-action--instagram" href={instagramUrl} target="_blank" rel="noreferrer">
-            <InstagramIcon />
-            <span>Instagram</span>
-          </a>
-        </div>
+        {onHome ? (
+          <>
+            <div className="studio-contact-layout">
+              <div className="contact-details">
+                <p className="eyebrow">İletişim</p>
+                <address className="contact-address">
+                  Dr. Mustafa Enver Bey Cad. Kültür Apt. No:30/7
+                  <br />
+                  Alsancak, İzmir
+                </address>
+                <a className="contact-phone" href="tel:+905302071908">0530 207 19 08</a>
+              </div>
+              <ContactChannels />
+            </div>
+            <div className="location-map">
+              <iframe
+                title="Alsancak Pilates Studio konumu"
+                src={mapsEmbedUrl}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+              <a
+                className="location-map-link"
+                href={mapsDirectionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Yol tarifi"
+              >
+                <span>
+                  <MapsIcon />
+                  Yol tarifi
+                </span>
+              </a>
+            </div>
+          </>
+        ) : (
+          <ContactChannels />
+        )}
       </footer>
 
       <div className="contact-dock">
@@ -416,6 +470,15 @@ function PilatesApp() {
         </a>
         <a className="contact-dock-link contact-dock-link--instagram" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram’da aç">
           <InstagramIcon />
+        </a>
+        <a
+          className="contact-dock-link contact-dock-link--maps"
+          href={mapsDirectionsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Yol tarifi"
+        >
+          <MapsIcon />
         </a>
       </div>
     </div>
