@@ -28,21 +28,34 @@ export function packageFitsSlot(item, sessionType) {
   return item.session_type === sessionType
 }
 
+function expiryDate(item) {
+  if (item?.expires_on) return item.expires_on
+  if (item?.expires_at) return String(item.expires_at).slice(0, 10)
+  return null
+}
+
+function packageActiveOn(item, isoDate, sessionType) {
+  if (!item || item.credits_remaining <= 0) return false
+  if (item.activated_at === null) return false
+  if (item.starts_on && item.starts_on > isoDate) return false
+  const expiry = expiryDate(item)
+  if (expiry && isoDate > expiry) return false
+  return packageFitsSlot(item, sessionType)
+}
+
 export function creditsOnDate(packages, isoDate, sessionType) {
   return (packages ?? [])
-    .filter((item) => (
-      item.starts_on <= isoDate
-      && item.credits_remaining > 0
-      && packageFitsSlot(item, sessionType)
-    ))
+    .filter((item) => packageActiveOn(item, isoDate, sessionType))
     .reduce((sum, item) => sum + item.credits_remaining, 0)
 }
 
 export function futureCreditPackage(packages, isoDate, sessionType) {
   return (packages ?? []).find((item) => (
-    item.starts_on > isoDate
+    item.activated_at !== null
+    && item.starts_on > isoDate
     && item.credits_remaining > 0
     && packageFitsSlot(item, sessionType)
+    && (!expiryDate(item) || isoDate <= expiryDate(item))
   )) ?? null
 }
 
@@ -95,7 +108,7 @@ export function packageLead(member) {
   if (member?.trial_used && !member?.has_taken_lessons) {
     return 'Deneme antrenmanın kayıtlı. Devam etmek için bir paket seç.'
   }
-  return 'Paketi seç. Saatini seçince ödeme adımına geçilir.'
+  return 'Ders almak için paket seçmelisin'
 }
 
 export function packageOption(kind) {

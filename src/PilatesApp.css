@@ -2148,3 +2148,466 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+.time-kind.is-busy,
+.time-kind.is-busy:disabled {
+  white-space: normal;
+  color: #ffb4a8;
+  opacity: 1;
+  line-height: 1.25;
+}
+
+.time-slot:has(.is-busy) {
+  min-height: 118px;
+}
+
+.instructor-picker {
+  margin-bottom: 18px;
+  scroll-margin-top: 96px;
+}
+
+.instructor-heading {
+  margin-bottom: 12px;
+  color: var(--cream);
+  font-size: 1.45rem;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.instructor-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.instructor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cream);
+  text-align: left;
+}
+
+.instructor-card:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 4px;
+}
+
+.instructor-photo,
+.instructor-fallback {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.instructor-photo {
+  object-fit: cover;
+  object-position: center 18%;
+}
+
+.instructor-fallback {
+  display: grid;
+  place-items: center;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(1.6rem, 2vw, 2.4rem);
+  letter-spacing: -0.04em;
+}
+
+.instructor-card strong {
+  font-size: 0.98rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.instructor-card.is-selected .instructor-photo,
+.instructor-card.is-selected .instructor-fallback {
+  outline: 3px solid var(--gold);
+  outline-offset: -3px;
+}
+
+.instructor-card.is-selected strong {
+  color: var(--gold);
+}
+
+.instructor-warning {
+  margin-top: 12px;
+}
+
+.instructor-calendar-label {
+  margin: 14px 0 0;
+  color: var(--cream);
+  font-size: 1.05rem;
+}
+
+.time-grid.is-locked {
+  opacity: 0.42;
+}
+
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(1100px, calc(100% - 40px));
+  margin: 8px auto 0;
+}
+
+.admin-tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(244, 239, 231, 0.18);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cream);
+  font-size: 0.82rem;
+}
+
+.admin-tab.is-active {
+  border-color: transparent;
+  background: var(--gold);
+  color: var(--forest-deep);
+}
+
+.performance-month {
+  max-width: 240px;
+  margin-bottom: 8px;
+}
+
+.performance-chart {
+  margin-top: 22px;
+}
+
+.performance-chart ul {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.performance-chart li p {
+  margin-bottom: 8px;
+  color: var(--cream);
+  font-size: 1.05rem;
+}
+
+.performance-bar {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) 2.5rem;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  color: var(--cream);
+  font-size: 0.92rem;
+}
+
+.performance-track {
+  display: block;
+  height: 14px;
+  background: rgba(244, 239, 231, 0.08);
+}
+
+.performance-track i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+.performance-bar--active .performance-track i {
+  background: var(--cream);
+}
+
+.performance-bar--cancelled .performance-track i {
+  background: #ffb4a8;
+}
+
+.performance-bar strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@media (max-width: 800px) {
+  .instructor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+
+  .admin-tabs {
+    width: min(1100px, calc(100% - 24px));
+  }
+
+  .performance-bar {
+    grid-template-columns: 92px minmax(0, 1fr) 2rem;
+  }
+}
+
+.booking-steps {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.booking-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.booking-steps span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 239, 231, 0.2);
+}
+
+.booking-steps .is-current {
+  color: var(--cream);
+}
+
+.booking-steps .is-current span,
+.booking-steps .is-done span {
+  background: #1f8a78;
+  border-color: transparent;
+  color: var(--cream);
+}
+
+.booking-schedule {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.month-cal {
+  width: 100%;
+  max-width: 320px;
+}
+
+.month-cal-bar,
+.shift-month-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.month-cal-title {
+  color: var(--cream);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.month-cal-arrow {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(244, 239, 231, 0.16);
+  border-radius: 12px;
+  background: rgba(12, 27, 24, 0.7);
+  color: var(--cream);
+  font-size: 1.3rem;
+}
+
+.month-cal-grid {
+  display: grid;
+  gap: 4px;
+}
+
+.month-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.month-cal-dow {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.month-cal-day {
+  min-height: 36px;
+  border: 1px solid rgba(244, 239, 231, 0.12);
+  border-radius: 10px;
+  background: rgba(12, 27, 24, 0.7);
+  color: var(--cream);
+  font-size: 0.85rem;
+}
+
+.month-cal-day.is-today {
+  box-shadow: inset 0 0 0 1px #7dcec2;
+}
+
+.month-cal-day.is-selected {
+  background: #1f8a78;
+  border-color: transparent;
+  color: #f4efe7;
+}
+
+.month-cal-day.is-outside,
+.month-cal-day[aria-disabled='true'] {
+  opacity: 0.38;
+}
+
+.booking-times-title {
+  margin-bottom: 10px;
+  color: var(--cream);
+  font-size: 1.05rem;
+}
+
+.teacher-step {
+  margin-top: 16px;
+}
+
+.teacher-step h3,
+.package-terms h3 {
+  margin-bottom: 10px;
+  color: var(--cream);
+  font-size: 1rem;
+}
+
+.teacher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.teacher-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 239, 231, 0.14);
+  border-radius: 14px;
+  background: rgba(12, 27, 24, 0.7);
+  color: var(--cream);
+  text-align: left;
+}
+
+.teacher-card.is-selected {
+  border-color: transparent;
+  background: #1f8a78;
+}
+
+.teacher-badge {
+  border-radius: 999px;
+  background: rgba(244, 239, 231, 0.12);
+  padding: 2px 8px;
+  font-size: 0.72rem;
+}
+
+.package-terms {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(244, 239, 231, 0.12);
+  border-radius: 16px;
+}
+
+.package-terms p,
+.legal-page .hero-text {
+  white-space: pre-wrap;
+}
+
+.terms-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.92rem;
+  color: var(--cream);
+}
+
+.terms-check input,
+.admin-block input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+}
+
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+  width: min(var(--max-width), calc(100% - 48px));
+  margin: 8px auto 20px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.footer-legal a:hover,
+.footer-legal a:focus-visible {
+  color: var(--cream);
+}
+
+.admin-text {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.admin-filter {
+  max-width: 280px;
+  margin-bottom: 12px;
+}
+
+.shift-table th.is-closed,
+.shift-table td.is-closed {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.shift-cell {
+  min-width: 88px;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--cream);
+  font-size: 0.72rem;
+}
+
+.shift-editor {
+  max-width: 460px;
+}
+
+.shift-draft {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .booking-schedule {
+    grid-template-columns: 1fr;
+  }
+
+  .month-cal {
+    max-width: none;
+  }
+
+  .month-cal-day {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .booking-steps {
+    flex-wrap: wrap;
+  }
+}

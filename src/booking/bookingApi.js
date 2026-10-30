@@ -26,6 +26,15 @@ const KNOWN_MESSAGES = [
   'Çok fazla bağlama denemesi',
   'Önce bilgilerini tamamla',
   'KVKK onayı gerekli',
+  'Eğitmen uygun değil',
+  'Antrenör bulunamadı',
+  'Paketin bu tarihte geçerli değil',
+  'Ders almak için paket seçmelisin',
+  'Öğretmen mesaisi yok',
+  'Öğretmen bu dersi vermiyor',
+  'Bu saatte başka rezervasyonun var',
+  'Paket koşullarını kabul etmelisin',
+  'Paket zaten aktif',
 ]
 
 export function messageOf(error) {
@@ -71,8 +80,26 @@ export async function fetchBookableSlots(fromDate, toDate) {
   return data ?? []
 }
 
-export async function bookSession(slotId) {
-  const { data, error } = await supabase.rpc('book_session', { p_slot_id: slotId })
+export async function fetchInstructors() {
+  const { data, error } = await supabase.rpc('list_instructors')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchInstructorOccupancy(fromDate, toDate) {
+  const { data, error } = await supabase.rpc('list_instructor_occupancy', {
+    p_from: fromDate,
+    p_to: toDate,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function bookSession(slotId, instructorId) {
+  const { data, error } = await supabase.rpc('book_session_with_instructor', {
+    p_slot_id: slotId,
+    p_instructor_id: instructorId,
+  })
   if (error) throw error
   return data
 }
@@ -95,13 +122,41 @@ export async function registerMember({ firstName, lastName, phone }) {
   return data
 }
 
-export async function registerTrialLesson({ firstName, lastName, phone, slotId }) {
-  const { data, error } = await supabase.rpc('register_trial_lesson', {
+export async function registerTrialLesson({ firstName, lastName, phone, slotId, instructorId }) {
+  const { data, error } = await supabase.rpc('register_trial_with_instructor', {
     p_first_name: firstName,
     p_last_name: lastName,
     p_phone: phone,
     p_slot_id: slotId,
+    p_instructor_id: instructorId,
   })
+  if (error) throw error
+  return data
+}
+
+export async function fetchAvailableTeachers(slotId) {
+  const { data, error } = await supabase.rpc('list_available_teachers', {
+    p_slot_id: slotId,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function requestPackagePurchase(kind, acceptTerms) {
+  const { data, error } = await supabase.rpc('request_package_purchase', {
+    p_kind: kind,
+    p_accept_terms: acceptTerms === true,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function fetchSiteContent(key) {
+  const { data, error } = await supabase
+    .from('site_content')
+    .select('key, title, body')
+    .eq('key', key)
+    .maybeSingle()
   if (error) throw error
   return data
 }

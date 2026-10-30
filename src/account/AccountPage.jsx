@@ -152,7 +152,7 @@ function AccountPage({ user, onUser }) {
       pending = null
     }
     if (!pending?.slot_id) return undefined
-    navigate('/#iletisim')
+    navigate({ pathname: '/', hash: '#iletisim' })
     return undefined
   }, [user, data?.profile_complete, navigate])
 
@@ -203,10 +203,7 @@ function AccountPage({ user, onUser }) {
   })
 
   function chooseLesson() {
-    navigate('/')
-    window.setTimeout(() => {
-      document.getElementById('iletisim')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 80)
+    navigate({ pathname: '/', hash: '#iletisim' })
   }
 
   async function signOut() {
@@ -356,7 +353,7 @@ function AccountPage({ user, onUser }) {
               pending = null
             }
             if (pending?.slot_id) {
-              navigate('/#iletisim')
+              navigate({ pathname: '/', hash: '#iletisim' })
               return
             }
             reload()
@@ -418,13 +415,19 @@ function AccountPage({ user, onUser }) {
                 </div>
                 {pack.expires_on && (
                   <p className="account-meta">
-                    Bitiş: {formatLongDate(pack.expires_on)}
-                    {pack.days_left != null ? ` (${pack.days_left} gün kaldı)` : ''}
+                    Paket bitiş: {formatLongDate(pack.expires_on)} · Kalan {remaining} ders
+                  </p>
+                )}
+                {pack.days_left != null && pack.days_left <= 5 && pack.days_left >= 0 && (
+                  <p className="booking-error" role="status">
+                    Paketin bitmesine {pack.days_left} gün kaldı. Kullanılmayan dersler süre sonunda yanar.
                   </p>
                 )}
               </>
             ) : (
-              <p className="account-credits account-credits--empty">Aktif paketin yok</p>
+              <p className="account-credits account-credits--empty">
+                {pack?.status === 'pending' ? 'Paket talebin alındı. Ödeme onaylanınca ders hakkın açılır.' : 'Aktif paketin yok'}
+              </p>
             )}
           </section>
 

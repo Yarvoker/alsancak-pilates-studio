@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   bookSession,
+  fetchAvailableTeachers,
   fetchBookableSlots,
   fetchMemberState,
   messageOf,
   recordBookingInquiry,
   registerTrialLesson,
+  requestPackagePurchase,
 } from './bookingApi.js'
+import MonthCalendar from './MonthCalendar.jsx'
+import PackageTerms from './PackageTerms.jsx'
+import {
+  groupSlotsByDate,
+  monthBounds,
+  monthKeyFromIso,
+  openSlotCount,
+  shiftMonth,
+  formatDayHeading,
+} from './bookingCalendar.js'
 import { notifyMemberChanged } from './dashboardApi.js'
 import MemberSummary from './MemberSummary.jsx'
 import {
@@ -15,24 +27,40 @@ import {
   futureCreditPackage,
   occupancyLabel,
   packageLead,
-  packageOption,
-  packageSessionType,
-  saveCheckout,
   sheetFor,
 } from './sheetFlow.js'
 import {
   addIsoDays,
-  formatStudioDate,
   formatStudioWhen,
   istanbulDateTime,
-  isPastSlot,
   isSlotFull,
-  openingMinutes,
-  slotStarts,
   todayIso,
 } from './slotRules.js'
 
-const initialClock = Date.now()
+async function fetchSpan(from, to) {
+  try {
+    return await fetchBookableSlots(from, to)
+  } catch (error) {
+    if (!String(error?.message || '').includes('Geçersiz tarih aralığı')) throw error
+    const rows = []
+    let cursor = from
+    while (cursor <= to) {
+      const end = addIsoDays(cursor, 14)
+      const chunkTo = end > to ? to : end
+      rows.push(...await fetchBookableSlots(cursor, chunkTo))
+      cursor = addIsoDays(chunkTo, 1)
+    }
+    return rows
+  }
+}
+
+const STEPS = ['Gün', 'Saat', 'Öğretmen', 'Onay']
+
+const PACKAGE_CARDS = [
+  { kind: 'pack_8', title: "8'li", price: '8.000 TL', detail: 'Grup dersi' },
+  { kind: 'pack_12', title: "12'li", price: '11.500 TL', detail: 'Grup dersi' },
+  { kind: 'private_single', title: 'Özel ders', price: '', detail: '2 kişi' },
+]
 
 try {
   sessionStorage.removeItem('alsancak-booking-phone')
@@ -40,75 +68,28 @@ try {
   // Private browsing can reject storage. Auth still lives in the Supabase session.
 }
 
-function dayChipParts(isoDate) {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return {
-    weekday: new Intl.DateTimeFormat('tr-TR', { weekday: 'short', timeZone: 'UTC' }).format(date),
-    date: new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date),
-  }
-}
-
-function dayIsEmpty(isoDate, now) {
-  return !slotStarts(isoDate).some((time) => !isPastSlot(isoDate, time, now))
-}
-
-function centerDay(row, chip, behavior) {
-  if (!row || !chip) return false
-  const rowRect = row.getBoundingClientRect()
-  const chipRect = chip.getBoundingClientRect()
-  const delta = (chipRect.left + chipRect.width / 2) - (rowRect.left + rowRect.width / 2)
-  const max = Math.max(0, row.scrollWidth - row.clientWidth)
-  const left = Math.min(max, Math.max(0, row.scrollLeft + delta))
-  if (Math.abs(row.scrollLeft - left) < 2) return false
-  row.scrollTo({ left, behavior })
-  return true
-}
-
-function centeredIso(row, chips) {
-  const mid = row.getBoundingClientRect().left + row.clientWidth / 2
-  let best = ''
-  let bestDist = Infinity
-  chips.forEach((chip, isoDate) => {
-    const rect = chip.getBoundingClientRect()
-    const dist = Math.abs(rect.left + rect.width / 2 - mid)
-    if (dist < bestDist) {
-      bestDist = dist
-      best = isoDate
-    }
-  })
-  return best
-}
-
-function slotsAt(slots, isoDate, time) {
-  return slots.filter((slot) => {
-    const parts = istanbulDateTime(slot.starts_at)
-    return parts.date === isoDate && parts.time === time
-  })
-}
-
-function groupSeatOpen(slot) {
-  return Boolean(slot)
-    && slot.session_type === 'group'
-    && slot.status === 'open'
-    && (slot.booked_count ?? 0) < (slot.capacity ?? 0)
-}
-
 function readPendingSlot() {
   try {
     const parsed = JSON.parse(sessionStorage.getItem('pending_slot') || 'null')
     if (!parsed?.slot_id || !parsed?.starts_at) return null
-    return { slot_id: parsed.slot_id, starts_at: parsed.starts_at }
+    const teacherId = parsed.teacher_id || parsed.instructor_id || ''
+    return {
+      slot_id: parsed.slot_id,
+      starts_at: parsed.starts_at,
+      teacher_id: teacherId,
+    }
   } catch {
     return null
   }
 }
 
-function writePendingSlot(slot) {
+function writePendingSlot(slot, teacherId) {
   try {
     sessionStorage.setItem('pending_slot', JSON.stringify({
       slot_id: slot.id,
       starts_at: slot.starts_at,
+      instructor_id: teacherId || null,
+      teacher_id: teacherId || null,
     }))
   } catch {
     // Private browsing can reject storage. The login page then opens the account panel.
@@ -123,69 +104,119 @@ function clearPendingSlot() {
   }
 }
 
+function slotsOn(rows, isoDate) {
+  return (rows || []).filter((slot) => istanbulDateTime(slot.starts_at).date === isoDate)
+}
+
 function BookingPanel({ authUser = null }) {
-  const dates = useMemo(() => {
-    const start = todayIso()
-    return Array.from({ length: 7 }, (_, index) => addIsoDays(start, index))
-  }, [])
+  const initialMonth = monthKeyFromIso(todayIso())
+  const [monthKey, setMonthKey] = useState(initialMonth)
+  const [slotCache, setSlotCache] = useState(() => new Map())
+  const [selectedDate, setSelectedDate] = useState('')
+  const [selectedSlotId, setSelectedSlotId] = useState('')
+  const [teacherId, setTeacherId] = useState('')
+  const [teachers, setTeachers] = useState([])
+  const [teachersBusy, setTeachersBusy] = useState(false)
   const [loginPrompt, setLoginPrompt] = useState(false)
   const [memberState, setMemberState] = useState(null)
-  const [selectedDate, setSelectedDate] = useState(
-    () => dates.find((isoDate) => openingMinutes(isoDate) !== null) ?? dates[0],
-  )
-  const [slots, setSlots] = useState([])
-  const [selectedSlotId, setSelectedSlotId] = useState('')
   const [sheet, setSheet] = useState(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [slotsBusy, setSlotsBusy] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
-  const [clock, setClock] = useState(initialClock)
-  const [checkoutKind, setCheckoutKind] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [startSlots, setStartSlots] = useState([])
-  const [startBusy, setStartBusy] = useState(false)
-  const [trialSlotId, setTrialSlotId] = useState('')
-  const sheetRef = useRef(null)
+  const [clock, setClock] = useState(() => Date.now())
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const cacheRef = useRef(new Map())
+  const pickedInitial = useRef(false)
   const authUserRef = useRef(authUser)
+  const sheetRef = useRef(null)
+  const timesRef = useRef(null)
   const loginLinkRef = useRef(null)
-  const dayRowRef = useRef(null)
-  const dayChipRefs = useRef(new Map())
-  const selectedDateRef = useRef(selectedDate)
-  const chooseDayRef = useRef(() => {})
-  const programmaticScroll = useRef(false)
-  const didCenter = useRef(false)
+  const autoBooked = useRef(false)
   authUserRef.current = authUser
-  selectedDateRef.current = selectedDate
 
+  const monthSlots = slotCache.get(monthKey) || []
+  const grouped = useMemo(
+    () => groupSlotsByDate(monthSlots, istanbulDateTime),
+    [monthSlots],
+  )
+  const slotCounts = useMemo(() => {
+    const counts = new Map()
+    grouped.forEach((list, iso) => counts.set(iso, list.length))
+    return counts
+  }, [grouped])
+  const openCounts = useMemo(() => {
+    const counts = new Map()
+    grouped.forEach((list, iso) => counts.set(iso, openSlotCount(list)))
+    return counts
+  }, [grouped])
+
+  const daySlots = slotsOn(monthSlots, selectedDate)
+  const times = [...new Set(daySlots.map((slot) => istanbulDateTime(slot.starts_at).time))].sort()
+  const selectedSlot = daySlots.find((slot) => slot.id === selectedSlotId)
+    || (slotCache.size
+      ? [...slotCache.values()].flat().find((slot) => slot.id === selectedSlotId)
+      : null)
+    || null
   const member = memberState?.member ?? null
-  const times = slotStarts(selectedDate)
-  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
   const sessionType = selectedSlot?.session_type ?? null
   const usableCredits = creditsOnDate(member?.packages, selectedDate, sessionType)
   const datedCredits = creditsOnDate(member?.packages, selectedDate)
+  const step = !selectedDate ? 1 : !selectedSlotId ? 2 : !teacherId ? 3 : 4
+  const canPrev = (slotCache.get(shiftMonth(monthKey, -1)) || []).length > 0
+  const canNext = (slotCache.get(shiftMonth(monthKey, 1)) || []).length > 0
 
   useEffect(() => {
     let ignore = false
-
-    fetchBookableSlots(selectedDate, selectedDate)
-      .then((rows) => {
+    const keys = [shiftMonth(monthKey, -1), monthKey, shiftMonth(monthKey, 1)]
+    setSlotsBusy(true)
+    Promise.all(keys.map(async (key) => {
+      if (cacheRef.current.has(key)) return
+      const { from, to } = monthBounds(key)
+      const rows = await fetchSpan(from, to)
+      cacheRef.current.set(key, rows)
+    }))
+      .then(() => {
         if (ignore) return
-        setSlots(rows)
+        setSlotCache(new Map(cacheRef.current))
         setClock(Date.now())
       })
       .catch((lookupError) => {
         if (!ignore) setError(messageOf(lookupError))
       })
       .finally(() => {
-        if (ignore) return
-        setSlotsBusy(false)
+        if (!ignore) setSlotsBusy(false)
       })
-
     return () => {
       ignore = true
     }
-  }, [selectedDate])
+  }, [monthKey])
+
+  useEffect(() => {
+    if (pickedInitial.current || slotsBusy) return undefined
+    if (!cacheRef.current.has(monthKey) || !cacheRef.current.has(shiftMonth(monthKey, 1))) return undefined
+    const pending = readPendingSlot()
+    if (pending?.starts_at) {
+      const when = istanbulDateTime(pending.starts_at)
+      pickedInitial.current = true
+      setMonthKey(monthKeyFromIso(when.date))
+      setSelectedDate(when.date)
+      return undefined
+    }
+    const keys = [monthKey, shiftMonth(monthKey, 1)]
+    for (const key of keys) {
+      const dates = [...new Set((cacheRef.current.get(key) || [])
+        .map((slot) => istanbulDateTime(slot.starts_at).date))].sort()
+      if (dates[0]) {
+        pickedInitial.current = true
+        if (key !== monthKey) setMonthKey(key)
+        setSelectedDate(dates[0])
+        return undefined
+      }
+    }
+    pickedInitial.current = true
+    return undefined
+  }, [slotsBusy, slotCache, monthKey])
 
   useEffect(() => {
     if (!authUser) {
@@ -206,94 +237,38 @@ function BookingPanel({ authUser = null }) {
   }, [authUser?.id])
 
   useEffect(() => {
+    if (!selectedSlotId) {
+      setTeachers([])
+      return undefined
+    }
+    let ignore = false
+    setTeachersBusy(true)
+    fetchAvailableTeachers(selectedSlotId)
+      .then((rows) => {
+        if (!ignore) setTeachers(rows)
+      })
+      .catch((lookupError) => {
+        if (!ignore) setError(messageOf(lookupError))
+      })
+      .finally(() => {
+        if (!ignore) setTeachersBusy(false)
+      })
+    return () => {
+      ignore = true
+    }
+  }, [selectedSlotId])
+
+  useEffect(() => {
     if (!sheet) return undefined
-    sheetRef.current?.focus()
+    sheetRef.current?.focus({ preventScroll: true })
     return undefined
-  }, [sheet, selectedSlotId])
+  }, [sheet, selectedSlotId, teacherId])
 
   useEffect(() => {
     if (!loginPrompt) return undefined
     loginLinkRef.current?.focus()
     return undefined
   }, [loginPrompt])
-
-  useEffect(() => {
-    const row = dayRowRef.current
-    const chip = dayChipRefs.current.get(selectedDate)
-    const behavior = didCenter.current ? 'smooth' : 'auto'
-    didCenter.current = true
-    const moved = centerDay(row, chip, behavior)
-    if (!moved) {
-      programmaticScroll.current = false
-      return undefined
-    }
-    programmaticScroll.current = true
-    const release = window.setTimeout(() => {
-      programmaticScroll.current = false
-    }, behavior === 'smooth' ? 480 : 80)
-    return () => window.clearTimeout(release)
-  }, [selectedDate])
-
-  useEffect(() => {
-    const row = dayRowRef.current
-    if (!row) return undefined
-    let timer = 0
-    const settle = () => {
-      const isoDate = centeredIso(row, dayChipRefs.current)
-      if (!isoDate || isoDate === selectedDateRef.current) return
-      chooseDayRef.current(isoDate)
-    }
-    const queueSettle = () => {
-      window.clearTimeout(timer)
-      timer = window.setTimeout(settle, 120)
-    }
-    const onScroll = () => {
-      if (programmaticScroll.current) return
-      queueSettle()
-    }
-    const onScrollEnd = () => {
-      if (programmaticScroll.current) {
-        programmaticScroll.current = false
-        return
-      }
-      queueSettle()
-    }
-    row.addEventListener('scroll', onScroll, { passive: true })
-    row.addEventListener('scrollend', onScrollEnd)
-    return () => {
-      row.removeEventListener('scroll', onScroll)
-      row.removeEventListener('scrollend', onScrollEnd)
-      window.clearTimeout(timer)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!authUser || !memberState || slotsBusy) return undefined
-    const pending = readPendingSlot()
-    if (!pending) return undefined
-    const when = istanbulDateTime(pending.starts_at)
-    if (!dates.includes(when.date)) {
-      clearPendingSlot()
-      return undefined
-    }
-    if (selectedDate !== when.date) {
-      setSelectedDate(when.date)
-      setSlotsBusy(true)
-      return undefined
-    }
-    const slot = slots.find((item) => item.id === pending.slot_id)
-    if (!slot) {
-      clearPendingSlot()
-      return undefined
-    }
-    if (memberState.profile_complete !== true) return undefined
-    queueMicrotask(() => clearPendingSlot())
-    setLoginPrompt(false)
-    setSelectedSlotId(slot.id)
-    setError('')
-    setSheet(sheetFor(memberState.member, when.date, slot.session_type, groupSeatOpen(slot)))
-    return undefined
-  }, [authUser, memberState, slots, slotsBusy, selectedDate, dates])
 
   async function refreshMember() {
     const next = await fetchMemberState()
@@ -302,60 +277,150 @@ function BookingPanel({ authUser = null }) {
     return next
   }
 
-  async function reloadSlots() {
-    const rows = await fetchBookableSlots(selectedDate, selectedDate)
-    setSlots(rows)
+  async function reloadMonth(key = monthKey) {
+    const { from, to } = monthBounds(key)
+    const rows = await fetchSpan(from, to)
+    cacheRef.current.set(key, rows)
+    setSlotCache(new Map(cacheRef.current))
     setClock(Date.now())
     return rows
   }
 
-  function rememberInquiry(isoDate, source) {
+  function rememberInquiry(isoDate) {
     if (!isoDate) return
-    recordBookingInquiry(isoDate, '', source).catch(() => {})
+    recordBookingInquiry(isoDate, '', 'day').catch(() => {})
   }
 
-  function closeSheet() {
-    setSheet(null)
+  function chooseDay(isoDate) {
+    const rows = cacheRef.current.get(monthKeyFromIso(isoDate)) || []
+    if (!slotsOn(rows, isoDate).length) return
+    setSelectedDate(isoDate)
     setSelectedSlotId('')
+    setTeacherId('')
+    setSheet(null)
+    setError('')
+    setNotice('')
+    rememberInquiry(isoDate)
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      window.setTimeout(() => {
+        timesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 40)
+    }
+  }
+
+  function chooseTime(slot) {
+    if (!slot || isSlotFull(slot.session_type, slot.booked_count) || slot.status !== 'open') return
+    setSelectedSlotId(slot.id)
+    setTeacherId('')
+    setSheet(null)
+    setError('')
+    setNotice('')
+    setLoginPrompt(false)
+  }
+
+  function clearTime() {
+    setSelectedSlotId('')
+    setTeacherId('')
+    setSheet(null)
     setError('')
   }
 
   function openSheet(slot, state) {
     const when = istanbulDateTime(slot.starts_at)
-    setSheet(sheetFor(state?.member, when.date, slot.session_type, groupSeatOpen(slot)))
+    const groupOpen = slot.session_type === 'group'
+      && slot.status === 'open'
+      && (slot.booked_count ?? 0) < (slot.capacity ?? 0)
+    setSheet(sheetFor(state?.member, when.date, slot.session_type, groupOpen))
   }
 
-  async function onSlotClick(slot) {
-    setSelectedSlotId(slot.id)
+  async function chooseTeacher(person) {
+    if (!selectedSlot || !person?.id) return
+    setTeacherId(person.id)
     setNotice('')
     setError('')
     setLoginPrompt(false)
 
     if (!authUserRef.current || memberState?.profile_complete !== true) {
-      writePendingSlot(slot)
+      writePendingSlot(selectedSlot, person.id)
       if (!authUserRef.current) {
         setLoginPrompt(true)
+        setSheet(null)
         return
       }
       window.location.assign('/hesabim?next=book')
       return
     }
 
-    clearPendingSlot()
     setSheet('checking')
     try {
       const next = await refreshMember()
       if (next?.profile_complete !== true) {
-        writePendingSlot(slot)
+        writePendingSlot(selectedSlot, person.id)
         window.location.assign('/hesabim?next=book')
         return
       }
-      openSheet(slot, next)
+      clearPendingSlot()
+      openSheet(selectedSlot, next)
     } catch (lookupError) {
       setSheet(null)
       setError(messageOf(lookupError))
     }
   }
+
+  useEffect(() => {
+    if (autoBooked.current || !authUser || !memberState || slotsBusy || teachersBusy) return undefined
+    const pending = readPendingSlot()
+    if (!pending?.teacher_id) return undefined
+    const when = istanbulDateTime(pending.starts_at)
+    if (selectedDate !== when.date) return undefined
+    const slot = slotsOn(cacheRef.current.get(monthKeyFromIso(when.date)) || [], when.date)
+      .find((item) => item.id === pending.slot_id)
+    if (!slot) return undefined
+    if (memberState.profile_complete !== true) return undefined
+    if (selectedSlotId !== slot.id) {
+      setSelectedSlotId(slot.id)
+      return undefined
+    }
+    if (!teachers.some((person) => person.id === pending.teacher_id)) return undefined
+    if (teacherId !== pending.teacher_id) {
+      setTeacherId(pending.teacher_id)
+      return undefined
+    }
+    const credits = creditsOnDate(memberState.member?.packages, when.date, slot.session_type)
+    if (credits > 0) {
+      autoBooked.current = true
+      clearPendingSlot()
+      setActionBusy(true)
+      bookSession(slot.id, pending.teacher_id)
+        .then(async () => {
+          await refreshMember()
+          await reloadMonth(monthKeyFromIso(when.date))
+          notifyMemberChanged()
+          setSheet(null)
+          setSelectedSlotId('')
+          setTeacherId('')
+          setNotice('Yerin tutuldu.')
+        })
+        .catch((bookError) => {
+          setError(messageOf(bookError))
+          setSheet('packages')
+        })
+        .finally(() => setActionBusy(false))
+      return undefined
+    }
+    clearPendingSlot()
+    openSheet(slot, memberState)
+    return undefined
+  }, [
+    authUser,
+    memberState,
+    slotsBusy,
+    teachersBusy,
+    teachers,
+    selectedDate,
+    selectedSlotId,
+    teacherId,
+  ])
 
   function declineTrial() {
     const credits = creditsOnDate(member?.packages, selectedDate, selectedSlot?.session_type)
@@ -364,7 +429,7 @@ function BookingPanel({ authUser = null }) {
 
   function openTrialForm() {
     if (!authUserRef.current || memberState?.profile_complete !== true) {
-      if (selectedSlot) writePendingSlot(selectedSlot)
+      if (selectedSlot) writePendingSlot(selectedSlot, teacherId)
       if (!authUserRef.current) {
         setLoginPrompt(true)
         return
@@ -377,37 +442,17 @@ function BookingPanel({ authUser = null }) {
     setSheet('trial-form')
   }
 
-  function selectTrial() {
-    setCheckoutKind('trial')
-    setTrialSlotId('')
-    setError('')
-    setNotice('')
-    pickStartDay(selectedDate)
-  }
-
-  function chooseHour(item) {
-    if (checkoutKind !== 'trial') {
-      continueToPayment(item.time)
-      return
-    }
-    setTrialSlotId(item.slot.id)
-    setError('')
-    setNotice('')
-    setSheet('trial-form')
-  }
-
   async function submitTrial(event) {
     event.preventDefault()
     if (!authUserRef.current || memberState?.profile_complete !== true) {
-      if (selectedSlot) writePendingSlot(selectedSlot)
+      if (selectedSlot) writePendingSlot(selectedSlot, teacherId)
       window.location.assign('/hesabim?next=book')
       return
     }
-    const bookedSlot = startSlots.find((item) => item.id === trialSlotId) || selectedSlot
-    const groupOpen = bookedSlot?.session_type === 'group'
-      && bookedSlot.status === 'open'
-      && (bookedSlot.booked_count ?? 0) < (bookedSlot.capacity ?? 0)
-    if (!groupOpen) {
+    const groupOpen = selectedSlot?.session_type === 'group'
+      && selectedSlot.status === 'open'
+      && (selectedSlot.booked_count ?? 0) < (selectedSlot.capacity ?? 0)
+    if (!teacherId || !selectedSlot || !groupOpen) {
       setError('Deneme antrenmanı yalnız boş grup saatine yazılır')
       return
     }
@@ -415,30 +460,26 @@ function BookingPanel({ authUser = null }) {
     setActionBusy(true)
     setError('')
     setNotice('')
-
     try {
       await registerTrialLesson({
         firstName: '',
         lastName: '',
         phone: '',
-        slotId: bookedSlot.id,
+        slotId: selectedSlot.id,
+        instructorId: teacherId,
       })
       await refreshMember()
-      await reloadSlots()
+      await reloadMonth()
       setSheet(null)
       setSelectedSlotId('')
-      setTrialSlotId('')
+      setTeacherId('')
       notifyMemberChanged()
       setNotice('Deneme antrenmanın bu grup saatine kaydedildi.')
     } catch (trialError) {
       const text = messageOf(trialError)
       if (text === 'Bu telefonla kayıtlı üyelik var') {
-        const next = await refreshMember()
-        const returning = next?.member?.has_taken_lessons
-          || next?.member?.trial_used
-          || next?.member?.has_paid_package
         setSheet('packages')
-        setNotice(returning ? 'Kaydın bulundu. Paketini seçebilirsin.' : 'Kaydın bulundu.')
+        setNotice('Kaydın bulundu. Paketini seçebilirsin.')
       } else {
         setError(text)
       }
@@ -447,49 +488,42 @@ function BookingPanel({ authUser = null }) {
     }
   }
 
-  function selectPackage(kind) {
-    if (!packageOption(kind)) return
-    setCheckoutKind(kind)
+  async function selectPackage(kind) {
+    if (!PACKAGE_OPTIONS.some((option) => option.kind === kind) && kind !== 'private_single') return
+    if (!termsAccepted) {
+      setError('Paket koşullarını kabul etmelisin')
+      return
+    }
+    if (!authUserRef.current || memberState?.profile_complete !== true) {
+      if (selectedSlot) writePendingSlot(selectedSlot, teacherId)
+      if (!authUserRef.current) {
+        setLoginPrompt(true)
+        return
+      }
+      window.location.assign('/hesabim?next=book')
+      return
+    }
+    if (selectedSlot) writePendingSlot(selectedSlot, teacherId)
+    setActionBusy(true)
     setError('')
-    setNotice('')
-    pickStartDay(selectedDate)
-  }
-
-  async function pickStartDay(isoDate) {
-    setStartDate(isoDate)
-    setSheet('start-time')
-    setStartBusy(true)
-    setError('')
-
     try {
-      const rows = await fetchBookableSlots(isoDate, isoDate)
-      setStartSlots(rows)
-      setClock(Date.now())
-    } catch (loadError) {
-      setStartSlots([])
-      setError(messageOf(loadError))
+      await requestPackagePurchase(kind, true)
+      setNotice('Paket talebin alındı. Ödeme onaylanınca bu ders yazılır.')
+      setSheet(null)
+    } catch (purchaseError) {
+      setError(messageOf(purchaseError))
     } finally {
-      setStartBusy(false)
+      setActionBusy(false)
     }
   }
 
-  function continueToPayment(time) {
-    const option = packageOption(checkoutKind)
-    if (!option || !startDate || !time) return
-    saveCheckout({
-      kind: option.kind,
-      title: option.title,
-      startsOn: startDate,
-      time,
-      sessionType: packageSessionType(option.kind),
-    })
-    window.location.hash = 'odeme'
-  }
-
   async function holdSeat() {
-    if (!selectedSlot) return
+    if (!selectedSlot || !teacherId) {
+      setError('Bu saatte müsait öğretmen yok, başka saat seç')
+      return
+    }
     if (!authUserRef.current || memberState?.profile_complete !== true) {
-      writePendingSlot(selectedSlot)
+      writePendingSlot(selectedSlot, teacherId)
       if (!authUserRef.current) {
         setLoginPrompt(true)
         return
@@ -501,20 +535,24 @@ function BookingPanel({ authUser = null }) {
     setActionBusy(true)
     setError('')
     setNotice('')
-
     try {
-      await bookSession(selectedSlot.id)
+      await bookSession(selectedSlot.id, teacherId)
+      clearPendingSlot()
       setSelectedSlotId('')
+      setTeacherId('')
       setSheet(null)
       await refreshMember()
-      await reloadSlots()
+      await reloadMonth()
       notifyMemberChanged()
       setNotice('Yerin tutuldu.')
     } catch (bookError) {
       const text = messageOf(bookError)
       if (text === 'Üye bulunamadı' || text === 'Önce bilgilerini tamamla') {
-        writePendingSlot(selectedSlot)
+        writePendingSlot(selectedSlot, teacherId)
         window.location.assign('/hesabim?next=book')
+      } else if (text === 'Ders almak için paket seçmelisin') {
+        writePendingSlot(selectedSlot, teacherId)
+        setSheet('packages')
       } else {
         setError(text)
       }
@@ -534,157 +572,122 @@ function BookingPanel({ authUser = null }) {
     holdBlock = 'Kullanılabilir ders kredisi yok'
   }
 
-  const checkoutOption = checkoutKind === 'trial'
-    ? { kind: 'trial', title: 'Deneme antrenmanı' }
-    : packageOption(checkoutKind)
-  const sessionForPackage = checkoutKind === 'trial' ? 'group' : packageSessionType(checkoutKind)
-  const openHours = startDate
-    ? slotStarts(startDate).flatMap((time) => {
-      if (isPastSlot(startDate, time, clock)) return []
-      const slot = startSlots.find((item) => {
-        const parts = istanbulDateTime(item.starts_at)
-        return parts.date === startDate && parts.time === time && item.session_type === sessionForPackage
-      })
-      if (!slot || slot.status !== 'open' || (slot.booked_count ?? 0) >= (slot.capacity ?? 0)) return []
-      return [{ time, slot, detail: occupancyLabel(slot, false) }]
-    })
-    : []
-
   const savedNotice = notice === 'Yerin tutuldu.'
     || notice === 'Deneme antrenmanın bu grup saatine kaydedildi.'
-
-  function chooseDay(isoDate) {
-    if (!dates.includes(isoDate)) return
-    if (isoDate === selectedDateRef.current) {
-      const moved = centerDay(dayRowRef.current, dayChipRefs.current.get(isoDate), 'smooth')
-      programmaticScroll.current = moved
-      if (moved) window.setTimeout(() => { programmaticScroll.current = false }, 480)
-      return
-    }
-    selectedDateRef.current = isoDate
-    setSelectedDate(isoDate)
-    setSelectedSlotId('')
-    setSlotsBusy(true)
-    rememberInquiry(isoDate, 'day')
-    if (checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')) {
-      pickStartDay(isoDate)
-      return
-    }
-    setSheet(null)
-  }
-  chooseDayRef.current = chooseDay
-
-  function moveDay(step) {
-    const index = dates.indexOf(selectedDateRef.current)
-    const next = dates[index + step]
-    if (!next) return
-    chooseDay(next)
-    dayChipRefs.current.get(next)?.focus({ preventScroll: true })
-  }
-
-  function onDayKeyDown(event) {
-    if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      moveDay(1)
-    } else if (event.key === 'ArrowLeft') {
-      event.preventDefault()
-      moveDay(-1)
-    }
-  }
-
-  const selectedIndex = Math.max(0, dates.indexOf(selectedDate))
+  const badge = selectedSlot?.session_type === 'private' ? 'Özel ders' : 'Grup'
 
   return (
     <div className="booking-form">
       <MemberSummary user={authUser} />
-      <div className="day-scroller">
-        <button
-          type="button"
-          className="day-arrow day-arrow--prev"
-          aria-label="Önceki gün"
-          disabled={selectedIndex === 0}
-          onClick={() => moveDay(-1)}
-        >
-          ‹
-        </button>
-        <div
-          ref={dayRowRef}
-          className="day-row"
-          role="tablist"
-          aria-label="Gün seç"
-          onKeyDown={onDayKeyDown}
-        >
-          {dates.map((isoDate) => {
-            const parts = dayChipParts(isoDate)
-            const empty = dayIsEmpty(isoDate, clock)
-            const selected = isoDate === selectedDate
-            return (
-              <button
-                key={isoDate}
-                ref={(node) => {
-                  if (node) dayChipRefs.current.set(isoDate, node)
-                  else dayChipRefs.current.delete(isoDate)
-                }}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                tabIndex={selected ? 0 : -1}
-                data-date={isoDate}
-                className={`day-chip${selected ? ' active' : ''}${empty ? ' is-empty' : ''}`}
-                onClick={() => chooseDay(isoDate)}
-              >
-                <span className="day-chip-name">{parts.weekday}</span>
-                <span className="day-chip-date">{parts.date}</span>
-                {empty && <span className="day-chip-note">Ders yok</span>}
-              </button>
-            )
-          })}
+      <ol className="booking-steps" aria-label="Rezervasyon adımları">
+        {STEPS.map((label, index) => {
+          const number = index + 1
+          const className = number === step ? 'is-current' : number < step ? 'is-done' : ''
+          return (
+            <li key={label} className={className}>
+              <span>{number}</span>
+              {label}
+            </li>
+          )
+        })}
+      </ol>
+
+      <div className="booking-schedule">
+        <MonthCalendar
+          monthKey={monthKey}
+          selectedDate={selectedDate}
+          today={todayIso(clock)}
+          slotCounts={slotCounts}
+          openCounts={openCounts}
+          canPrev={canPrev}
+          canNext={canNext}
+          onMonth={(delta) => {
+            const next = shiftMonth(monthKey, delta)
+            const rows = slotCache.get(next) || []
+            if (!rows.length) return
+            setMonthKey(next)
+            setSelectedSlotId('')
+            setTeacherId('')
+            setSheet(null)
+          }}
+          onSelect={chooseDay}
+        />
+
+        <div ref={timesRef} className="booking-times" aria-busy={slotsBusy}>
+          <h3 className="booking-times-title">
+            {selectedDate ? formatDayHeading(selectedDate) : 'Gün seç'}
+          </h3>
+          {!selectedDate && <p className="sheet-copy">Takvimden müsait bir gün seç.</p>}
+          {selectedDate && !slotsBusy && times.length === 0 && (
+            <p className="sheet-copy">Bu gün için açık ders yok</p>
+          )}
+          {times.length > 0 && (
+            <div className="time-grid">
+              {times.map((time) => {
+                const pair = daySlots.filter((slot) => istanbulDateTime(slot.starts_at).time === time)
+                return (
+                  <div key={time} className="time-slot" role="group" aria-label={time}>
+                    <strong>{time}</strong>
+                    {['private', 'group'].map((kind) => {
+                      const slot = pair.find((item) => item.session_type === kind)
+                      const bookable = Boolean(slot) && (slot.status === 'open' || slot.status === 'full')
+                      const open = bookable
+                        && slot.status === 'open'
+                        && !isSlotFull(slot.session_type, slot.booked_count)
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          className={slot?.id === selectedSlotId ? 'time-kind active' : 'time-kind'}
+                          disabled={!open || actionBusy}
+                          onClick={() => chooseTime(slot)}
+                        >
+                          {occupancyLabel(bookable ? slot : null, false)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
-        <button
-          type="button"
-          className="day-arrow day-arrow--next"
-          aria-label="Sonraki gün"
-          disabled={selectedIndex === dates.length - 1}
-          onClick={() => moveDay(1)}
-        >
-          ›
-        </button>
       </div>
 
-      <div className="time-grid" aria-busy={slotsBusy}>
-        {times.map((time) => {
-          const pair = slotsAt(slots, selectedDate, time)
-          const past = isPastSlot(selectedDate, time, clock)
-
-          return (
-            <div key={time} className="time-slot" role="group" aria-label={time}>
-              <strong>{time}</strong>
-              {past ? <small>Geçti</small> : ['private', 'group'].map((kind) => {
-                const slot = pair.find((item) => item.session_type === kind)
-                const bookable = Boolean(slot) && (slot.status === 'open' || slot.status === 'full')
-                const open = bookable
-                  && slot.status === 'open'
-                  && !isSlotFull(slot.session_type, slot.booked_count)
-                const detail = occupancyLabel(bookable ? slot : null, false)
-
+      {selectedSlot && (
+        <section className="teacher-step" aria-labelledby="teacher-step-title">
+          <h3 id="teacher-step-title">Öğretmen seç</h3>
+          {teachersBusy && <p className="sheet-copy">Öğretmenler yükleniyor.</p>}
+          {!teachersBusy && teachers.length === 0 && (
+            <div className="sheet-block">
+              <p className="sheet-copy">Bu saatte müsait öğretmen yok, başka saat seç</p>
+              <button type="button" className="cta ghost" onClick={clearTime}>Başka saat seç</button>
+            </div>
+          )}
+          {teachers.length > 0 && (
+            <div className="teacher-grid">
+              {teachers.map((person) => {
+                const selected = person.id === teacherId
                 return (
                   <button
-                    key={kind}
+                    key={person.id}
                     type="button"
-                    className={slot?.id === selectedSlotId ? 'time-kind active' : 'time-kind'}
-                    disabled={!open || actionBusy}
-                    onClick={() => onSlotClick(slot)}
+                    className={selected ? 'teacher-card is-selected' : 'teacher-card'}
+                    aria-pressed={selected}
+                    onClick={() => chooseTeacher(person)}
+                    disabled={actionBusy}
                   >
-                    {detail}
+                    <strong>{person.full_name}</strong>
+                    <span className="teacher-badge">{badge}</span>
                   </button>
                 )
               })}
             </div>
-          )
-        })}
-      </div>
+          )}
+        </section>
+      )}
 
-      {selectedSlot && sheet && (
+      {selectedSlot && teacherId && sheet && (
         <section
           ref={sheetRef}
           className="slot-sheet"
@@ -692,17 +695,8 @@ function BookingPanel({ authUser = null }) {
           aria-labelledby="slot-sheet-title"
           aria-busy={actionBusy}
         >
-          <p className="sheet-kicker">
-            {checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')
-              ? 'Deneme antrenmanı'
-              : occupancyLabel(selectedSlot, false)}
-          </p>
-          <h3 id="slot-sheet-title">
-            {checkoutKind === 'trial' && (sheet === 'start-time' || sheet === 'trial-form')
-              ? formatStudioDate(startDate || selectedDate)
-              : formatStudioWhen(selectedSlot.starts_at)}
-          </h3>
-
+          <p className="sheet-kicker">{occupancyLabel(selectedSlot, false)}</p>
+          <h3 id="slot-sheet-title">{formatStudioWhen(selectedSlot.starts_at)}</h3>
           {sheet === 'checking' && <p className="sheet-copy">Kayıt kontrol ediliyor.</p>}
 
           {sheet === 'trial-offer' && (
@@ -724,15 +718,10 @@ function BookingPanel({ authUser = null }) {
             <form className="sheet-block" onSubmit={submitTrial}>
               <p className="sheet-copy">Deneme antrenmanın bu grup saatine yazılacak.</p>
               <div className="sheet-actions">
-                <button type="submit" className="cta" disabled={actionBusy}>
+                <button type="submit" className="cta" disabled={actionBusy || !teacherId}>
                   {actionBusy ? 'Kaydediliyor' : 'Onayla'}
                 </button>
-                <button
-                  type="button"
-                  className="cta ghost"
-                  onClick={() => setSheet(checkoutKind === 'trial' ? 'start-time' : 'trial-offer')}
-                  disabled={actionBusy}
-                >
+                <button type="button" className="cta ghost" onClick={() => setSheet('trial-offer')} disabled={actionBusy}>
                   Vazgeç
                 </button>
               </div>
@@ -744,71 +733,43 @@ function BookingPanel({ authUser = null }) {
               <p className="sheet-copy">{packageLead(member)}</p>
               {member?.full_name && <p className="member-name">{member.full_name}</p>}
               <div className="choice-list">
-                {PACKAGE_OPTIONS.map((option) => (
+                {PACKAGE_CARDS.map((option) => (
                   <button
                     key={option.kind}
                     type="button"
                     className="choice-card"
                     onClick={() => selectPackage(option.kind)}
+                    disabled={actionBusy || !termsAccepted}
                   >
-                    <span className="choice-index">{option.index}</span>
+                    <span className="choice-index">{option.price || 'ÖZ'}</span>
                     <span>
                       <strong>{option.title}</strong>
-                      <small>{option.detail}</small>
+                      <small>{option.detail}{option.price ? ` · ${option.price}` : ''}</small>
                     </span>
                   </button>
                 ))}
-                {!member && (
-                  <button type="button" className="choice-card" onClick={selectTrial}>
+                {!member?.trial_used && !member?.has_taken_lessons && !member?.has_paid_package && (
+                  <button type="button" className="choice-card" onClick={openTrialForm}>
                     <span className="choice-index">01</span>
                     <span>
-                      <strong>Deneme antrenmanı</strong>
+                      <strong>Deneme dersi</strong>
                       <small>Grup dersi, ücretsiz</small>
                     </span>
                   </button>
                 )}
               </div>
-              <button type="button" className="text-button sheet-check" onClick={closeSheet}>
+              <a className="text-button" href="#fiyatlar">Fiyat kartlarına git</a>
+              <PackageTerms />
+              <label className="terms-check">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(event) => setTermsAccepted(event.target.checked)}
+                />
+                <span>Paket koşullarını okudum, kabul ediyorum</span>
+              </label>
+              <button type="button" className="text-button sheet-check" onClick={() => setSheet(null)}>
                 Kapat
-              </button>
-            </div>
-          )}
-
-          {sheet === 'start-time' && checkoutOption && (
-            <div className="sheet-block">
-              <p className="sheet-copy">
-                {checkoutOption.title}, {startDate ? formatStudioDate(startDate) : ''}.
-                {' '}
-                {checkoutKind === 'trial' ? 'Günü yukarıdan değiştirip saati onayla.' : 'Saatini seç.'}
-              </p>
-              {startBusy && <p className="sheet-copy">Saatler yükleniyor.</p>}
-              {!startBusy && openHours.length === 0 && (
-                <p className="sheet-copy">
-                  {openingMinutes(startDate) === null
-                    ? 'Bu gün stüdyo kapalı.'
-                    : 'Bu günde seçilebilir saat yok.'}
-                </p>
-              )}
-              {openHours.length > 0 && (
-                <div className="choice-list">
-                  {openHours.map((item) => (
-                    <button
-                      key={item.time}
-                      type="button"
-                      className="choice-card"
-                      onClick={() => chooseHour(item)}
-                    >
-                      <span className="choice-index">{item.time}</span>
-                      <span>
-                        <strong>{item.detail}</strong>
-                        <small>{checkoutKind === 'trial' ? 'Onayla' : 'Ödemeye geç'}</small>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button type="button" className="text-button sheet-check" onClick={() => setSheet('packages')}>
-                Geri
               </button>
             </div>
           )}
@@ -828,11 +789,11 @@ function BookingPanel({ authUser = null }) {
                   type="button"
                   className="cta"
                   onClick={holdSeat}
-                  disabled={actionBusy || Boolean(holdBlock)}
+                  disabled={actionBusy || Boolean(holdBlock) || !teacherId}
                 >
                   {actionBusy ? 'Kaydediliyor' : 'Yerini tut'}
                 </button>
-                <button type="button" className="cta ghost" onClick={closeSheet}>
+                <button type="button" className="cta ghost" onClick={() => setSheet(null)}>
                   Vazgeç
                 </button>
               </div>
@@ -843,8 +804,6 @@ function BookingPanel({ authUser = null }) {
           )}
         </section>
       )}
-
-      {holdBlock && sheet !== 'credits' && <p className="booking-error">{holdBlock}</p>}
 
       {notice && (
         <p className="booking-note" role="status">

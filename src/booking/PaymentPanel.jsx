@@ -22,6 +22,11 @@ function PaymentPanel() {
           <p className="sheet-kicker">{order.title}</p>
           <h3>{formatStudioDate(order.startsOn)}</h3>
           <p className="payment-time">{order.time}</p>
+          {order.instructorName ? (
+            <p className="payment-time">{order.instructorName}</p>
+          ) : (
+            <p className="booking-error">Lütfen ders almak istediğiniz antrenörü seçiniz</p>
+          )}
           <p className="sheet-copy">
             {order.sessionType === 'private' ? 'Özel ders, 2 kişi.' : 'Grup dersi, 14 kişi.'}
             {' '}
