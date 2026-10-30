@@ -12,8 +12,15 @@ import {
   fetchLinkRequests,
   decideLinkRequest,
   markAttendance,
+  fetchAdminTeachers,
+  activateMemberPackage,
+  extendMemberPackage,
 } from './adminApi.js'
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
+import PerformancePool from './PerformancePool.jsx'
+import TeachersPanel from './TeachersPanel.jsx'
+import ShiftsPanel from './ShiftsPanel.jsx'
+import TextsPanel from './TextsPanel.jsx'
 
 const PACKAGE_OPTIONS = [
   { kind: 'pack_8', label: "8'li Pilates Paketi", sessionType: 'group' },
@@ -89,6 +96,10 @@ function AdminGate({ onClose }) {
   const [kind, setKind] = useState('pack_8')
   const [credits, setCredits] = useState('1')
   const [startsOn, setStartsOn] = useState(() => todayIso())
+  const [deskTab, setDeskTab] = useState('ledger')
+  const [teachers, setTeachers] = useState([])
+  const [teacherFilter, setTeacherFilter] = useState('')
+  const [extendDays, setExtendDays] = useState('30')
 
   useEffect(() => {
     if (session) return undefined
@@ -113,6 +124,11 @@ function AdminGate({ onClose }) {
     setLessons(nextLessons)
     setLinkRequests(nextLinks)
     setDeletions(nextDeletions)
+    try {
+      setTeachers(await fetchAdminTeachers(active.username, active.password))
+    } catch {
+      setTeachers([])
+    }
   }
 
   async function openClient(client) {
@@ -319,6 +335,88 @@ function AdminGate({ onClose }) {
         </div>
       )}
 
+      <div className="admin-tabs" role="tablist" aria-label="Yönetim">
+        <button
+          type="button"
+          role="tab"
+          id="admin-tab-ledger"
+          aria-selected={deskTab === 'ledger'}
+          aria-controls="admin-panel-ledger"
+          className={deskTab === 'ledger' ? 'admin-tab is-active' : 'admin-tab'}
+          onClick={() => setDeskTab('ledger')}
+        >
+          Stüdyo defteri
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="admin-tab-performance"
+          aria-selected={deskTab === 'performance'}
+          aria-controls="admin-panel-performance"
+          className={deskTab === 'performance' ? 'admin-tab is-active' : 'admin-tab'}
+          onClick={() => setDeskTab('performance')}
+        >
+          Antrenör Performans Havuzu
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="admin-tab-teachers"
+          aria-selected={deskTab === 'teachers'}
+          aria-controls="admin-panel-teachers"
+          className={deskTab === 'teachers' ? 'admin-tab is-active' : 'admin-tab'}
+          onClick={() => setDeskTab('teachers')}
+        >
+          Öğretmenler
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="admin-tab-shifts"
+          aria-selected={deskTab === 'shifts'}
+          aria-controls="admin-panel-shifts"
+          className={deskTab === 'shifts' ? 'admin-tab is-active' : 'admin-tab'}
+          onClick={() => setDeskTab('shifts')}
+        >
+          Mesai Tablosu
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="admin-tab-texts"
+          aria-selected={deskTab === 'texts'}
+          aria-controls="admin-panel-texts"
+          className={deskTab === 'texts' ? 'admin-tab is-active' : 'admin-tab'}
+          onClick={() => setDeskTab('texts')}
+        >
+          Metinler
+        </button>
+      </div>
+
+      {deskTab === 'teachers' && (
+        <div id="admin-panel-teachers" role="tabpanel" aria-labelledby="admin-tab-teachers">
+          <TeachersPanel session={session} onNotice={setNotice} />
+        </div>
+      )}
+      {deskTab === 'shifts' && (
+        <div id="admin-panel-shifts" role="tabpanel" aria-labelledby="admin-tab-shifts">
+          <ShiftsPanel session={session} onNotice={setNotice} />
+        </div>
+      )}
+      {deskTab === 'texts' && (
+        <div id="admin-panel-texts" role="tabpanel" aria-labelledby="admin-tab-texts">
+          <TextsPanel session={session} onNotice={setNotice} />
+        </div>
+      )}
+
+      {deskTab === 'performance' && (
+        <div id="admin-panel-performance" role="tabpanel" aria-labelledby="admin-tab-performance">
+          <PerformancePool session={session} />
+        </div>
+      )}
+
+      {deskTab === 'ledger' && (
+      <div id="admin-panel-ledger" role="tabpanel" aria-labelledby="admin-tab-ledger">
       <section className="admin-block">
         <h2>Haftalık dersler</h2>
         <p className="sheet-copy">
@@ -397,7 +495,74 @@ function AdminGate({ onClose }) {
               Paket: {detail.data.package?.status === 'active' ? detail.data.package?.name : 'Aktif paketin yok'}
               {' · '}
               {detail.data.package?.credits_remaining ?? 0} kredi
+              {detail.data.package?.expires_on ? ` · Bitiş ${formatStudioDate(detail.data.package.expires_on)}` : ''}
             </p>
+            <div className="sheet-actions">
+              {detail.data.pending_package?.id && (
+                <button
+                  type="button"
+                  className="cta"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true)
+                    setError('')
+                    try {
+                      await activateMemberPackage(session.username, session.password, detail.data.pending_package.id)
+                      const next = await fetchAdminMemberDashboard(session.username, session.password, detail.id)
+                      setDetail({ id: detail.id, data: next })
+                      await loadDesk(session)
+                      setNotice('Ödeme alındı. Paket 30 gün için açıldı.')
+                    } catch (payError) {
+                      setError(adminMessage(payError))
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                >
+                  Ödeme alındı
+                </button>
+              )}
+              {detail.data.package?.status === 'active' && detail.data.package?.id && (
+                <>
+                  <label>
+                    Gün
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={extendDays}
+                      onChange={(event) => setExtendDays(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="cta ghost"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true)
+                      setError('')
+                      try {
+                        await extendMemberPackage(
+                          session.username,
+                          session.password,
+                          detail.data.package.id,
+                          Number(extendDays),
+                        )
+                        const next = await fetchAdminMemberDashboard(session.username, session.password, detail.id)
+                        setDetail({ id: detail.id, data: next })
+                        setNotice('Paket süresi uzatıldı.')
+                      } catch (extendError) {
+                        setError(adminMessage(extendError))
+                      } finally {
+                        setBusy(false)
+                      }
+                    }}
+                  >
+                    Süre uzat
+                  </button>
+                </>
+              )}
+            </div>
             <p>
               Katılım {detail.data.stats?.total_attended ?? 0}
               {' · bu ay '}
@@ -587,6 +752,15 @@ function AdminGate({ onClose }) {
         <p className="sheet-copy">
           Derse 24 saatten az kala Gelmedi işaretlenince kredi düşülür. Daha erken iptal krediyi iade eder.
         </p>
+        <label className="admin-filter">
+          Öğretmen
+          <select value={teacherFilter} onChange={(event) => setTeacherFilter(event.target.value)}>
+            <option value="">Tümü</option>
+            {teachers.map((person) => (
+              <option key={person.id} value={person.id}>{person.full_name}</option>
+            ))}
+          </select>
+        </label>
         {lessons.length === 0 ? (
           <p className="sheet-copy">Ders kaydı yok.</p>
         ) : (
@@ -595,6 +769,7 @@ function AdminGate({ onClose }) {
               <thead>
                 <tr>
                   <th>Danışan</th>
+                  <th>Öğretmen</th>
                   <th>Ders</th>
                   <th>Katılım</th>
                   <th>Kredi</th>
@@ -602,12 +777,13 @@ function AdminGate({ onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {lessons.map((lesson) => (
+                {lessons.filter((lesson) => !teacherFilter || lesson.teacher_id === teacherFilter).map((lesson) => (
                   <tr key={lesson.id}>
                     <td>
                       {lesson.full_name}
                       <small className="admin-sub">{lesson.phone || '—'}</small>
                     </td>
+                    <td>{lesson.teacher_name || '—'}</td>
                     <td>
                       {formatStudioWhen(lesson.starts_at)}
                       <small className="admin-sub">{SESSION_LABEL[lesson.session_type] || 'Ders'}</small>
@@ -644,6 +820,8 @@ function AdminGate({ onClose }) {
           </div>
         )}
       </section>
+      </div>
+      )}
     </div>
   )
 }
