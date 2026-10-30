@@ -3,6 +3,8 @@ import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import AccountPage from './account/AccountPage.jsx'
 import PrivacyPage from './PrivacyPage.jsx'
 import AdminGate from './admin/AdminGate.jsx'
+import LegalPage from './LegalPage.jsx'
+import PackageTerms from './booking/PackageTerms.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
 import EmailOtpCard from './booking/EmailOtpCard.jsx'
 import PaymentPanel from './booking/PaymentPanel.jsx'
@@ -254,6 +256,10 @@ function PilatesApp() {
           <Route path="/admin" element={<AdminRoute />} />
           <Route path="/hesabim" element={<AccountPage user={authUser} onUser={setAuthUser} />} />
           <Route path="/gizlilik" element={<PrivacyPage />} />
+          <Route path="/paket-kosullari" element={<LegalPage contentKey="package_terms" title="Paket Koşulları" />} />
+          <Route path="/iptal-iade" element={<LegalPage contentKey="iptal_iade" title="İptal ve İade" />} />
+          <Route path="/mesafeli-satis" element={<LegalPage contentKey="mesafeli_satis" title="Mesafeli Satış Sözleşmesi" />} />
+          <Route path="/cerez" element={<LegalPage contentKey="cerez" title="Çerez Politikası" />} />
           <Route path="/" element={<>
         {checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
@@ -414,8 +420,9 @@ function PilatesApp() {
             ))}
           </div>
           <p className="pricing-note">
-            Paket dersleri satın alma tarihinden itibaren belirlenen süre içinde kullanılır. Derse 24 saatten az kala yapılan iptallerde ders hakkı kullanılmış sayılır.
+            Paketler satın alındığı tarihten itibaren 30 gün geçerlidir. Kullanılmayan dersler süre sonunda yanar.
           </p>
+          <PackageTerms />
         </section>
         </>)}
           </>} />
@@ -424,6 +431,13 @@ function PilatesApp() {
 
       <footer className="site-footer">
         <img className="footer-logo" src="/images/logo-yatay-krem.png" alt="Alsancak Pilates Studio" />
+        <nav className="footer-legal" aria-label="Yasal">
+          <a href="/gizlilik">Gizlilik</a>
+          <a href="/paket-kosullari">Paket Koşulları</a>
+          <a href="/iptal-iade">İptal ve İade</a>
+          <a href="/mesafeli-satis">Mesafeli Satış Sözleşmesi</a>
+          <a href="/cerez">Çerez Politikası</a>
+        </nav>
         {onHome ? (
           <>
             <div className="studio-contact-layout">

@@ -2,6 +2,10 @@
   "rewrites": [
     { "source": "/hesabim", "destination": "/index.html" },
     { "source": "/gizlilik", "destination": "/index.html" },
+    { "source": "/paket-kosullari", "destination": "/index.html" },
+    { "source": "/iptal-iade", "destination": "/index.html" },
+    { "source": "/mesafeli-satis", "destination": "/index.html" },
+    { "source": "/cerez", "destination": "/index.html" },
     { "source": "/admin", "destination": "/index.html" }
   ]
 }
