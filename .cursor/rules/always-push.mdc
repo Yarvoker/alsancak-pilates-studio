@@ -1,0 +1,38 @@
+---
+description: Commit finished work and push to origin/master
+alwaysApply: true
+---
+
+# Always push finished work
+
+When the user asks for a change in this repo and the work is finished, commit the relevant files and push to the existing upstream (`origin/master`) without waiting to be asked again. The user's phrase for this is "pushla herzaman".
+
+## Commit
+
+- Stage only files that belong to the finished request.
+- Do not commit secrets, `.env`, credentials, or `node_modules`.
+- Do not commit unrelated untracked files such as `src/booking/instructorCalendar.js`.
+- If there is nothing to commit, do not create an empty commit.
+- Write a why-focused commit message.
+- Do not amend unless the user explicitly asks.
+
+## Push
+
+- Push to the existing upstream. If none is set, use `git push -u origin HEAD`.
+- Do not force-push.
+- Do not skip hooks.
+- Do not run destructive git commands (`reset --hard`, force push, and similar).
+
+## Example
+
+After hiding the wide footer WhatsApp/Instagram bar on desktop:
+
+```powershell
+git add src/PilatesApp.css
+git commit -m @"
+Masaüstünde geniş footer iletişim çubuğunu gizle.
+"@
+git push
+```
+
+Leave `src/booking/instructorCalendar.js` untracked. It is not part of that change.

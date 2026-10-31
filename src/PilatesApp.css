@@ -1306,6 +1306,10 @@ textarea {
     padding-right: 96px;
   }
 
+  .studio-contact-layout .footer-actions {
+    display: none;
+  }
+
   .location-map {
     display: none;
   }
