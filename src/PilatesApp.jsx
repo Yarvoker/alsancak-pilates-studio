@@ -125,7 +125,7 @@ const pricing = [
   {
     id: 'private',
     label: 'ÖZEL DERS',
-    title: 'Fiyat için bize ulaşın',
+    amount: 8000,
     description: 'Size özel planlanan birebir seanslarla kişisel hedeflerinize odaklanın.',
   },
 ]

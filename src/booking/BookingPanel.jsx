@@ -59,7 +59,7 @@ const STEPS = ['Gün', 'Saat', 'Öğretmen', 'Onay']
 const PACKAGE_CARDS = [
   { kind: 'pack_8', title: "8'li", price: '8.000 TL', detail: 'Grup dersi' },
   { kind: 'pack_12', title: "12'li", price: '11.500 TL', detail: 'Grup dersi' },
-  { kind: 'private_single', title: 'Özel ders', price: '', detail: '2 kişi' },
+  { kind: 'private_single', title: 'Özel ders', price: '8.000 TL', detail: '2 kişi' },
 ]
 
 try {
