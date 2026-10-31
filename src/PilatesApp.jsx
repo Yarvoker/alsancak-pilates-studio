@@ -42,7 +42,7 @@ function MapsIcon() {
 
 const navItems = [
   ['Dersler', 'dersler'],
-  ['Eğitmen', 'egitmen'],
+  ['Eğitmenler', 'egitmen'],
   ['Galeri', 'galeri'],
   ['Fiyatlar', 'fiyatlar'],
 ]
@@ -131,6 +131,14 @@ const pricing = [
 ]
 
 const trainerBadges = ['Türkiye Cimnastik Federasyonu', 'Mat & Reformer', 'Fonksiyonel Antrenman']
+
+const instructors = [
+  'Önder Güzel',
+  'Emel Gamze Güzel',
+  'Devran Çiçek',
+  'Ecrin Aydınlı',
+  'Cemal Ayhan',
+]
 
 function ContactChannels() {
   return (
@@ -342,21 +350,10 @@ function PilatesApp() {
           </a>
         </section>
 
-        <section className="trainer section" id="egitmen">
-          <div className="trainer-grid">
-            <img
-              className="trainer-photo"
-              src="/images/private-session.jpg"
-              alt="Yeşil sweatshirt’lü eğitmen danışanına birebir Pilates seansında destek oluyor"
-              loading="lazy"
-            />
-
-            <div className="trainer-copy">
-              <p className="eyebrow">EĞİTMEN</p>
-              <div className="trainer-number">
-                <span>20</span>
-                <small>yıllık tecrübe</small>
-              </div>
+        <section className="trainer section" id="egitmen" aria-labelledby="egitmen-baslik">
+          <div className="trainer-intro">
+            <div className="trainer-intro-copy">
+              <p className="eyebrow" id="egitmen-baslik">Eğitmenler</p>
               <p className="trainer-text">
                 Türkiye Cimnastik Federasyonu sertifikası ile Mat & Reformer ve fonksiyonel antrenman alanında uzmanlaşmış bir yaklaşım.
               </p>
@@ -366,7 +363,20 @@ function PilatesApp() {
                 ))}
               </div>
             </div>
+            <div className="trainer-number">
+              <span>20</span>
+              <small>yıllık tecrübe</small>
+            </div>
           </div>
+
+          <ul className="trainer-roster">
+            {instructors.map((name) => (
+              <li key={name} className="instructor-slot">
+                <div className="instructor-frame" />
+                <p className="instructor-name">{name}</p>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="gallery section" id="galeri">
