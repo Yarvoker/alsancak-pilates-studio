@@ -1815,8 +1815,32 @@ textarea {
   margin-top: 8px;
 }
 
-.admin-assign .cta {
+.admin-assign .cta,
+.admin-desk .cta {
   margin-bottom: 2px;
+}
+
+.admin-desk {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(120px, 0.6fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.admin-desk + .admin-desk,
+.admin-desk + .table-wrap,
+.admin-desk + h3 {
+  margin-top: 18px;
+}
+
+.admin-desk--cash {
+  grid-template-columns: minmax(0, 1.35fr) minmax(110px, 0.55fr) minmax(90px, 0.4fr) minmax(140px, 0.7fr) minmax(0, 1fr) auto;
+}
+
+.admin-block h3 {
+  margin: 22px 0 8px;
+  color: var(--cream);
+  font-size: 1.15rem;
 }
 
 .admin-sub {
@@ -1879,9 +1903,17 @@ textarea {
   opacity: 0.45;
 }
 
+@media (max-width: 1100px) {
+  .admin-desk--cash {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 800px) {
   .admin-assign,
-  .admin-assign.has-credits {
+  .admin-assign.has-credits,
+  .admin-desk,
+  .admin-desk--cash {
     grid-template-columns: 1fr;
   }
 
