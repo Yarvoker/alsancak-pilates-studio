@@ -23,6 +23,7 @@ const KNOWN_MESSAGES = [
   'Paket bulunamadı',
   'Paket zaten aktif',
   'Paket seçeneği geçersiz',
+  'Başlangıç tarihi geçersiz',
   'Kalan ders geçersiz',
   'Tutar geçersiz',
   'Ders adedi geçersiz',
@@ -216,6 +217,17 @@ export async function extendMemberPackage(username, password, purchaseId, days) 
     p_password: password,
     p_purchase_id: purchaseId,
     p_days: days,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function setPackageStart(username, password, memberPackageId, startsOn) {
+  const { data, error } = await supabase.rpc('admin_set_package_start', {
+    p_username: username,
+    p_password: password,
+    p_member_package_id: memberPackageId,
+    p_starts_on: startsOn,
   })
   if (error) throw error
   return data
