@@ -110,8 +110,10 @@ function AdminGate({ onClose }) {
   const [teacherFilter, setTeacherFilter] = useState('')
   const [extendDays, setExtendDays] = useState('30')
   const [balanceMemberId, setBalanceMemberId] = useState('')
+  const [balanceTeacherId, setBalanceTeacherId] = useState('')
   const [balanceCount, setBalanceCount] = useState('')
   const [cashMemberId, setCashMemberId] = useState('')
+  const [cashTeacherId, setCashTeacherId] = useState('')
   const [cashAmount, setCashAmount] = useState('')
   const [cashLessons, setCashLessons] = useState('0')
   const [cashDate, setCashDate] = useState(() => todayIso())
@@ -273,15 +275,26 @@ function AdminGate({ onClose }) {
       setError('Kalan ders geçersiz')
       return
     }
+    if (!balanceTeacherId) {
+      setError('Öğretmen seç')
+      return
+    }
 
     setBusy(true)
     setError('')
     setNotice('')
     try {
-      const result = await setRemainingLessons(session.username, session.password, balanceMemberId, count)
+      const result = await setRemainingLessons(
+        session.username,
+        session.password,
+        balanceMemberId,
+        count,
+        balanceTeacherId,
+      )
       await loadDesk(session)
       const client = clients.find((item) => item.id === balanceMemberId)
-      setNotice(`${client?.full_name || 'Danışan'} için kalan ders ${result.credits_remaining} olarak kaydedildi.`)
+      const teacher = teachers.find((item) => item.id === balanceTeacherId)
+      setNotice(`${client?.full_name || 'Danışan'} için kalan ders ${result.credits_remaining} olarak kaydedildi. Öğretmen ${teacher?.full_name || 'seçildi'}.`)
     } catch (balanceError) {
       setError(adminMessage(balanceError))
     } finally {
@@ -302,6 +315,10 @@ function AdminGate({ onClose }) {
       setError('Ders adedi geçersiz')
       return
     }
+    if (!cashTeacherId) {
+      setError('Öğretmen seç')
+      return
+    }
 
     setBusy(true)
     setError('')
@@ -315,13 +332,15 @@ function AdminGate({ onClose }) {
         lessons,
         cashDate,
         cashNote,
+        cashTeacherId,
       )
       await loadDesk(session)
       setCashAmount('')
       setCashLessons('0')
       setCashNote('')
       const added = lessons > 0 ? ` ${lessons} ders eklendi.` : ''
-      setNotice(`Nakit ${moneyLabel(result.amount)} kaydedildi.${added} Kalan ders ${result.credits_remaining}.`)
+      const teacher = teachers.find((item) => item.id === cashTeacherId)
+      setNotice(`Nakit ${moneyLabel(result.amount)} kaydedildi.${added} Kalan ders ${result.credits_remaining}. Öğretmen ${teacher?.full_name || 'seçildi'}.`)
     } catch (cashError) {
       setError(adminMessage(cashError))
     } finally {
@@ -668,7 +687,7 @@ function AdminGate({ onClose }) {
       <section className="admin-block">
         <h2>Kasa</h2>
         <p className="sheet-copy">
-          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Nakit tahsilatta tutar kayda geçer; ders adedi yazılırsa o kadar hak eklenir.
+          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Nakit tahsilatta tutar kayda geçer; ders adedi yazılırsa o kadar hak eklenir. İki kayıtta da öğretmen seçilir.
         </p>
         <h3>Kalan ders</h3>
         <form className="admin-desk" onSubmit={submitBalance}>
@@ -680,6 +699,15 @@ function AdminGate({ onClose }) {
                 <option key={client.id} value={client.id}>
                   {client.full_name} · {client.credits_remaining} ders
                 </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Öğretmen
+            <select value={balanceTeacherId} onChange={(event) => setBalanceTeacherId(event.target.value)} required>
+              <option value="">Seç</option>
+              {teachers.filter((person) => person.active).map((person) => (
+                <option key={person.id} value={person.id}>{person.full_name}</option>
               ))}
             </select>
           </label>
@@ -696,7 +724,7 @@ function AdminGate({ onClose }) {
               required
             />
           </label>
-          <button type="submit" className="cta" disabled={busy || clients.length === 0}>
+          <button type="submit" className="cta" disabled={busy || clients.length === 0 || !teachers.some((person) => person.active)}>
             {busy ? 'Kaydediliyor' : 'Kalan dersi kaydet'}
           </button>
         </form>
@@ -711,6 +739,15 @@ function AdminGate({ onClose }) {
                 <option key={client.id} value={client.id}>
                   {client.full_name} · {client.phone || 'numarasız'}
                 </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Öğretmen
+            <select value={cashTeacherId} onChange={(event) => setCashTeacherId(event.target.value)} required>
+              <option value="">Seç</option>
+              {teachers.filter((person) => person.active).map((person) => (
+                <option key={person.id} value={person.id}>{person.full_name}</option>
               ))}
             </select>
           </label>
@@ -759,7 +796,7 @@ function AdminGate({ onClose }) {
               placeholder="İsteğe bağlı"
             />
           </label>
-          <button type="submit" className="cta" disabled={busy || clients.length === 0}>
+          <button type="submit" className="cta" disabled={busy || clients.length === 0 || !teachers.some((person) => person.active)}>
             {busy ? 'Kaydediliyor' : 'Nakit kaydı'}
           </button>
         </form>
@@ -774,6 +811,7 @@ function AdminGate({ onClose }) {
                 <tr>
                   <th>Tarih</th>
                   <th>Danışan</th>
+                  <th>Öğretmen</th>
                   <th>Tutar</th>
                   <th>Eklenen ders</th>
                   <th>Not</th>
@@ -787,6 +825,7 @@ function AdminGate({ onClose }) {
                       {receipt.full_name || '—'}
                       <span className="admin-sub">{receipt.phone || '—'}</span>
                     </td>
+                    <td>{receipt.teacher_name || '—'}</td>
                     <td>{moneyLabel(receipt.amount)}</td>
                     <td>{receipt.lesson_count}</td>
                     <td>{receipt.note || '—'}</td>
