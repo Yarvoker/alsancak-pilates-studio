@@ -15,6 +15,9 @@ import {
   fetchAdminTeachers,
   activateMemberPackage,
   extendMemberPackage,
+  setRemainingLessons,
+  recordCashPayment,
+  fetchCashReceipts,
 } from './adminApi.js'
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
 import PerformancePool from './PerformancePool.jsx'
@@ -69,6 +72,12 @@ function packageRows(client) {
   }]
 }
 
+function moneyLabel(value) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return '—'
+  return `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} TL`
+}
+
 function packageDetail(item) {
   const parts = [`${item.credits_remaining} kredi`]
   if (item.session_type === 'private') parts.push('özel ders, 2 kişilik')
@@ -100,6 +109,14 @@ function AdminGate({ onClose }) {
   const [teachers, setTeachers] = useState([])
   const [teacherFilter, setTeacherFilter] = useState('')
   const [extendDays, setExtendDays] = useState('30')
+  const [balanceMemberId, setBalanceMemberId] = useState('')
+  const [balanceCount, setBalanceCount] = useState('')
+  const [cashMemberId, setCashMemberId] = useState('')
+  const [cashAmount, setCashAmount] = useState('')
+  const [cashLessons, setCashLessons] = useState('0')
+  const [cashDate, setCashDate] = useState(() => todayIso())
+  const [cashNote, setCashNote] = useState('')
+  const [receipts, setReceipts] = useState([])
 
   useEffect(() => {
     if (session) return undefined
@@ -112,18 +129,20 @@ function AdminGate({ onClose }) {
   }, [session, onClose])
 
   async function loadDesk(active) {
-    const [nextClients, nextInquiries, nextLessons, nextLinks, nextDeletions] = await Promise.all([
+    const [nextClients, nextInquiries, nextLessons, nextLinks, nextDeletions, nextReceipts] = await Promise.all([
       fetchAdminClients(active.username, active.password),
       fetchBookingInquiries(active.username, active.password),
       fetchLessonHistory(active.username, active.password),
       fetchLinkRequests(active.username, active.password),
       fetchDeletionRequests(active.username, active.password),
+      fetchCashReceipts(active.username, active.password),
     ])
     setClients(nextClients)
     setInquiries(nextInquiries)
     setLessons(nextLessons)
     setLinkRequests(nextLinks)
     setDeletions(nextDeletions)
+    setReceipts(nextReceipts)
     try {
       setTeachers(await fetchAdminTeachers(active.username, active.password))
     } catch {
@@ -235,6 +254,76 @@ function AdminGate({ onClose }) {
       setNotice(`${label} tanımlandı.${creditNote}`)
     } catch (assignError) {
       setError(adminMessage(assignError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function chooseBalanceMember(memberId) {
+    setBalanceMemberId(memberId)
+    const client = clients.find((item) => item.id === memberId)
+    setBalanceCount(client ? String(client.credits_remaining ?? 0) : '')
+  }
+
+  async function submitBalance(event) {
+    event.preventDefault()
+    if (!session) return
+    const count = Number(balanceCount)
+    if (!balanceMemberId || !Number.isInteger(count) || count < 0 || count > 500) {
+      setError('Kalan ders geçersiz')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await setRemainingLessons(session.username, session.password, balanceMemberId, count)
+      await loadDesk(session)
+      const client = clients.find((item) => item.id === balanceMemberId)
+      setNotice(`${client?.full_name || 'Danışan'} için kalan ders ${result.credits_remaining} olarak kaydedildi.`)
+    } catch (balanceError) {
+      setError(adminMessage(balanceError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitCash(event) {
+    event.preventDefault()
+    if (!session) return
+    const amount = Number(String(cashAmount).trim().replace(/\s/g, '').replace(',', '.'))
+    const lessons = Number(cashLessons === '' ? 0 : cashLessons)
+    if (!cashMemberId || !Number.isFinite(amount) || amount <= 0 || amount > 1000000) {
+      setError('Tutar geçersiz')
+      return
+    }
+    if (!Number.isInteger(lessons) || lessons < 0 || lessons > 500) {
+      setError('Ders adedi geçersiz')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await recordCashPayment(
+        session.username,
+        session.password,
+        cashMemberId,
+        amount,
+        lessons,
+        cashDate,
+        cashNote,
+      )
+      await loadDesk(session)
+      setCashAmount('')
+      setCashLessons('0')
+      setCashNote('')
+      const added = lessons > 0 ? ` ${lessons} ders eklendi.` : ''
+      setNotice(`Nakit ${moneyLabel(result.amount)} kaydedildi.${added} Kalan ders ${result.credits_remaining}.`)
+    } catch (cashError) {
+      setError(adminMessage(cashError))
     } finally {
       setBusy(false)
     }
@@ -572,6 +661,139 @@ function AdminGate({ onClose }) {
             </p>
             <p>Yaklaşan: {(detail.data.upcoming ?? []).length}</p>
             <button type="button" className="text-button" onClick={() => setDetail(null)}>Kapat</button>
+          </div>
+        )}
+      </section>
+
+      <section className="admin-block">
+        <h2>Kasa</h2>
+        <p className="sheet-copy">
+          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Nakit tahsilatta tutar kayda geçer; ders adedi yazılırsa o kadar hak eklenir.
+        </p>
+        <h3>Kalan ders</h3>
+        <form className="admin-desk" onSubmit={submitBalance}>
+          <label>
+            Danışan
+            <select value={balanceMemberId} onChange={(event) => chooseBalanceMember(event.target.value)} required>
+              <option value="">Seç</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.full_name} · {client.credits_remaining} ders
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Kalan ders
+            <input
+              type="number"
+              min={0}
+              max={500}
+              step={1}
+              inputMode="numeric"
+              value={balanceCount}
+              onChange={(event) => setBalanceCount(event.target.value)}
+              required
+            />
+          </label>
+          <button type="submit" className="cta" disabled={busy || clients.length === 0}>
+            {busy ? 'Kaydediliyor' : 'Kalan dersi kaydet'}
+          </button>
+        </form>
+
+        <h3>Nakit tahsilat</h3>
+        <form className="admin-desk admin-desk--cash" onSubmit={submitCash}>
+          <label>
+            Danışan
+            <select value={cashMemberId} onChange={(event) => setCashMemberId(event.target.value)} required>
+              <option value="">Seç</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.full_name} · {client.phone || 'numarasız'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Tutar (TL)
+            <input
+              type="number"
+              min="0.01"
+              max="1000000"
+              step="0.01"
+              inputMode="decimal"
+              value={cashAmount}
+              onChange={(event) => setCashAmount(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Eklenen ders
+            <input
+              type="number"
+              min={0}
+              max={500}
+              step={1}
+              inputMode="numeric"
+              value={cashLessons}
+              onChange={(event) => setCashLessons(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Tarih
+            <input
+              type="date"
+              value={cashDate}
+              max={todayIso()}
+              onChange={(event) => setCashDate(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Not
+            <input
+              value={cashNote}
+              maxLength={400}
+              onChange={(event) => setCashNote(event.target.value)}
+              placeholder="İsteğe bağlı"
+            />
+          </label>
+          <button type="submit" className="cta" disabled={busy || clients.length === 0}>
+            {busy ? 'Kaydediliyor' : 'Nakit kaydı'}
+          </button>
+        </form>
+
+        <h3>Son nakit kayıtları</h3>
+        {receipts.length === 0 ? (
+          <p className="sheet-copy">Nakit kaydı yok.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Danışan</th>
+                  <th>Tutar</th>
+                  <th>Eklenen ders</th>
+                  <th>Not</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receipts.map((receipt) => (
+                  <tr key={receipt.id}>
+                    <td>{formatStudioDate(receipt.received_on)}</td>
+                    <td>
+                      {receipt.full_name || '—'}
+                      <span className="admin-sub">{receipt.phone || '—'}</span>
+                    </td>
+                    <td>{moneyLabel(receipt.amount)}</td>
+                    <td>{receipt.lesson_count}</td>
+                    <td>{receipt.note || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
