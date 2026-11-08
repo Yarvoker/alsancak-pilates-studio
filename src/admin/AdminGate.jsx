@@ -19,6 +19,7 @@ import {
   setRemainingLessons,
   recordCashPayment,
   fetchCashReceipts,
+  addExistingClient,
 } from './adminApi.js'
 import { addIsoDays, formatStudioDate, todayIso } from '../booking/slotRules.js'
 import PerformancePool from './PerformancePool.jsx'
@@ -181,6 +182,15 @@ function AdminGate({ onClose }) {
   const [cashDate, setCashDate] = useState(() => todayIso())
   const [cashNote, setCashNote] = useState('')
   const [receipts, setReceipts] = useState([])
+  const [existingFirst, setExistingFirst] = useState('')
+  const [existingLast, setExistingLast] = useState('')
+  const [existingPhone, setExistingPhone] = useState('')
+  const [existingTeacherId, setExistingTeacherId] = useState('')
+  const [existingCount, setExistingCount] = useState('')
+  const [existingStartsOn, setExistingStartsOn] = useState(() => todayIso())
+  const [existingAmount, setExistingAmount] = useState('')
+  const [existingPaidOn, setExistingPaidOn] = useState(() => todayIso())
+  const [existingNote, setExistingNote] = useState('')
 
   useEffect(() => {
     if (session) return undefined
@@ -324,6 +334,63 @@ function AdminGate({ onClose }) {
       setNotice(`${label} tanımlandı.${creditNote}`)
     } catch (assignError) {
       setError(adminMessage(assignError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitExisting(event) {
+    event.preventDefault()
+    if (!session) return
+    const count = Number(existingCount)
+    const amountText = String(existingAmount).trim().replace(/\s/g, '').replace(',', '.')
+    const amount = amountText === '' ? null : Number(amountText)
+    if (!Number.isInteger(count) || count < 0 || count > 500) {
+      setError('Kalan ders geçersiz')
+      return
+    }
+    if (count > 0 && !lessonExpiryIso(existingStartsOn)) {
+      setError('Başlangıç tarihi geçersiz')
+      return
+    }
+    if ((count > 0 || amount !== null) && !existingTeacherId) {
+      setError('Öğretmen seç')
+      return
+    }
+    if (amount !== null && (!Number.isFinite(amount) || amount <= 0 || amount > 1000000)) {
+      setError('Tutar geçersiz')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await addExistingClient(
+        session.username,
+        session.password,
+        existingFirst,
+        existingLast,
+        existingPhone,
+        count,
+        existingTeacherId,
+        count > 0 ? existingStartsOn : null,
+        amount,
+        amount === null ? null : existingPaidOn,
+        existingNote,
+      )
+      await loadDesk(session)
+      setExistingFirst('')
+      setExistingLast('')
+      setExistingPhone('')
+      setExistingCount('')
+      setExistingAmount('')
+      setExistingNote('')
+      const expiry = result.expires_on ? ` Bitiş ${formatStudioDate(result.expires_on)}.` : ''
+      const paid = result.amount ? ` Nakit ${moneyLabel(result.amount)} kaydedildi.` : ''
+      setNotice(`${result.full_name} eklendi. Kalan ders ${result.credits_remaining}.${expiry}${paid}`)
+    } catch (existingError) {
+      setError(adminMessage(existingError))
     } finally {
       setBusy(false)
     }
@@ -746,6 +813,26 @@ function AdminGate({ onClose }) {
         submitPackage={submitPackage}
         teacherFilter={teacherFilter}
         setTeacherFilter={setTeacherFilter}
+        existingFirst={existingFirst}
+        existingLast={existingLast}
+        existingPhone={existingPhone}
+        existingTeacherId={existingTeacherId}
+        existingCount={existingCount}
+        existingStartsOn={existingStartsOn}
+        existingAmount={existingAmount}
+        existingPaidOn={existingPaidOn}
+        existingNote={existingNote}
+        existingExpiryLabel={Number(existingCount) > 0 ? expiryLabel(existingStartsOn) : ''}
+        setExistingFirst={setExistingFirst}
+        setExistingLast={setExistingLast}
+        setExistingPhone={setExistingPhone}
+        setExistingTeacherId={setExistingTeacherId}
+        setExistingCount={setExistingCount}
+        setExistingStartsOn={setExistingStartsOn}
+        setExistingAmount={setExistingAmount}
+        setExistingPaidOn={setExistingPaidOn}
+        setExistingNote={setExistingNote}
+        submitExisting={submitExisting}
       />
 
       </div>
