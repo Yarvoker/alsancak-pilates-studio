@@ -1837,6 +1837,24 @@ textarea {
   grid-template-columns: minmax(0, 1.35fr) minmax(110px, 0.55fr) minmax(90px, 0.4fr) minmax(140px, 0.7fr) minmax(0, 1fr) auto;
 }
 
+.admin-desk--existing {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-existing-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  grid-column: 1 / -1;
+}
+
+.admin-expiry {
+  margin: 0;
+  color: var(--gold-soft);
+  font-size: 0.92rem;
+}
+
 .admin-block h3 {
   margin: 22px 0 8px;
   color: var(--cream);
@@ -1904,7 +1922,8 @@ textarea {
 }
 
 @media (max-width: 1100px) {
-  .admin-desk--cash {
+  .admin-desk--cash,
+  .admin-desk--existing {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -1913,7 +1932,8 @@ textarea {
   .admin-assign,
   .admin-assign.has-credits,
   .admin-desk,
-  .admin-desk--cash {
+  .admin-desk--cash,
+  .admin-desk--existing {
     grid-template-columns: 1fr;
   }
 
