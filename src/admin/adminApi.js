@@ -30,6 +30,9 @@ const KNOWN_MESSAGES = [
   'Tahsilat tarihi geçersiz',
   'Not çok uzun',
   'Öğretmen seç',
+  'İsim ve soyisim gerekli',
+  'Telefon numarası geçersiz',
+  'Bu telefonla kayıtlı üyelik var',
 ]
 
 export function adminMessage(error) {
@@ -289,6 +292,36 @@ export async function fetchCashReceipts(username, password) {
   })
   if (error) throw error
   return data ?? []
+}
+
+export async function addExistingClient(
+  username,
+  password,
+  firstName,
+  lastName,
+  phone,
+  remaining,
+  teacherId,
+  startsOn,
+  amount = null,
+  receivedOn = null,
+  note = null,
+) {
+  const { data, error } = await supabase.rpc('admin_add_existing_client', {
+    p_username: username,
+    p_password: password,
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_phone: phone,
+    p_remaining: remaining,
+    p_teacher_id: teacherId || null,
+    p_starts_on: startsOn || null,
+    p_amount: amount,
+    p_received_on: receivedOn || null,
+    p_note: note || null,
+  })
+  if (error) throw error
+  return data
 }
 
 export async function assignPackage(username, password, memberId, kind, startsOn, credits = null) {
