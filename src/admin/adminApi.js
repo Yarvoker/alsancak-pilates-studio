@@ -254,13 +254,14 @@ export async function saveSiteText(username, password, key, title, body) {
   return data
 }
 
-export async function setRemainingLessons(username, password, memberId, remaining, teacherId) {
+export async function setRemainingLessons(username, password, memberId, remaining, teacherId, startsOn = null) {
   const { data, error } = await supabase.rpc('admin_set_remaining_lessons', {
     p_username: username,
     p_password: password,
     p_member_id: memberId,
     p_remaining: remaining,
     p_teacher_id: teacherId,
+    p_starts_on: startsOn || null,
   })
   if (error) throw error
   return data
