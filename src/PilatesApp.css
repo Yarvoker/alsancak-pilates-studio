@@ -2592,6 +2592,7 @@ textarea {
   display: flex;
   flex-direction: row;
   align-items: center;
+  align-self: start;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
