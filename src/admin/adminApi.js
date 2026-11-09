@@ -41,6 +41,9 @@ const KNOWN_MESSAGES = [
   'İsim ve soyisim gerekli',
   'Telefon numarası geçersiz',
   'Bu telefonla kayıtlı üyelik var',
+  'Özel veya grup seç',
+  'Danışan bulunamadı',
+  'Ad gir',
 ]
 
 export function adminMessage(error) {
@@ -123,6 +126,30 @@ export async function searchSiteAccounts(username, password, query) {
   })
   if (error) throw error
   return data ?? []
+}
+
+export async function setMemberLessonArea(username, password, memberId, area) {
+  const { data, error } = await supabase.rpc('admin_set_member_lesson_area', {
+    p_username: username,
+    p_password: password,
+    p_member_id: memberId,
+    p_area: area,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function updateMemberProfile(username, password, memberId, firstName, lastName, phone) {
+  const { data, error } = await supabase.rpc('admin_update_member_profile', {
+    p_username: username,
+    p_password: password,
+    p_member_id: memberId,
+    p_first_name: firstName,
+    p_last_name: lastName,
+    p_phone: phone,
+  })
+  if (error) throw error
+  return data
 }
 
 export async function linkMemberAccount(username, password, memberId, userId) {
