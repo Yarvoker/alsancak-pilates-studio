@@ -686,7 +686,7 @@ function BookingPanel({ authUser = null }) {
                     onClick={() => chooseTeacher(person)}
                     disabled={actionBusy}
                   >
-                    {portrait && (
+                    {selected && portrait && (
                       <img
                         className="teacher-photo"
                         src={portrait.src}
