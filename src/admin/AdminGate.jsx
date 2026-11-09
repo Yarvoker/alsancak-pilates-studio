@@ -204,6 +204,7 @@ function AdminGate({ onClose }) {
   const [cashLessons, setCashLessons] = useState('0')
   const [cashDate, setCashDate] = useState(() => todayIso())
   const [cashNote, setCashNote] = useState('')
+  const [cashSession, setCashSession] = useState('group')
   const [receipts, setReceipts] = useState([])
   const [existingFirst, setExistingFirst] = useState('')
   const [existingLast, setExistingLast] = useState('')
@@ -470,6 +471,10 @@ function AdminGate({ onClose }) {
       setError('Öğretmen seç')
       return
     }
+    if (cashSession !== 'group' && cashSession !== 'private') {
+      setError('Grup veya özel ders seç')
+      return
+    }
 
     setBusy(true)
     setError('')
@@ -484,12 +489,13 @@ function AdminGate({ onClose }) {
         cashDate,
         cashNote,
         cashTeacherId,
+        cashSession,
       )
       await loadDesk(session)
       setCashAmount('')
       setCashLessons('0')
       setCashNote('')
-      const added = lessons > 0 ? ` ${lessons} ders eklendi.` : ''
+      const added = lessons > 0 ? ` ${lessons} ${cashSession === 'private' ? 'özel' : 'grup'} ders eklendi.` : ''
       const teacher = teachers.find((item) => item.id === cashTeacherId)
       setNotice(`Nakit ${moneyLabel(result.amount)} kaydedildi.${added} Kalan ders ${result.credits_remaining}. Öğretmen ${teacher?.full_name || 'seçildi'}.`)
     } catch (cashError) {
@@ -820,6 +826,8 @@ function AdminGate({ onClose }) {
         setCashLessons={setCashLessons}
         setCashDate={setCashDate}
         setCashNote={setCashNote}
+        cashSession={cashSession}
+        setCashSession={setCashSession}
         submitCash={submitCash}
         decideLink={decideLink}
         updateAttendance={updateAttendance}
