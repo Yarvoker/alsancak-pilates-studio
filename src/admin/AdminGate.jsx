@@ -149,6 +149,11 @@ const LEDGER_VIEWS = [
   { id: 'harici', label: 'Harici Kartla ödeme yapanlar' },
 ]
 
+const AKTIF_KINDS = [
+  { id: 'ozel', label: 'Özel ders alanlar' },
+  { id: 'grup', label: 'Grup dersi satın alanlar' },
+]
+
 function paymentVisible(client) {
   return Boolean(client.has_cash || client.has_site_card || client.has_external_card)
 }
@@ -157,6 +162,8 @@ function inLedgerView(client, view) {
   const credits = Number(client.credits_remaining) || 0
   if (view === 'nakit') return Boolean(client.has_cash)
   if (view === 'aktif') return credits > 0
+  if (view === 'aktif-ozel') return false
+  if (view === 'aktif-grup') return credits > 0
   if (view === 'pasif') return credits === 0 || !paymentVisible(client)
   if (view === 'kart') return Boolean(client.has_site_card)
   if (view === 'harici') return Boolean(client.has_external_card)
@@ -190,6 +197,7 @@ function AdminGate({ onClose }) {
   const [startsOn, setStartsOn] = useState(() => todayIso())
   const [deskTab, setDeskTab] = useState('ledger')
   const [ledgerView, setLedgerView] = useState('aktif')
+  const [aktifKind, setAktifKind] = useState('grup')
   const [teachers, setTeachers] = useState([])
   const [teacherFilter, setTeacherFilter] = useState('')
   const [extendDays, setExtendDays] = useState('30')
@@ -641,21 +649,42 @@ function AdminGate({ onClose }) {
               role="tab"
               aria-selected={ledgerView === view.id}
               className={ledgerView === view.id ? 'admin-tab is-active' : 'admin-tab'}
-              onClick={() => setLedgerView(view.id)}
+              onClick={() => {
+                setLedgerView(view.id)
+                if (view.id === 'aktif') setAktifKind('grup')
+              }}
             >
               {view.label}
               <span className="ledger-count">{clients.filter((client) => inLedgerView(client, view.id)).length}</span>
             </button>
           ))}
         </div>
+        {ledgerView === 'aktif' && (
+          <div className="ledger-filters ledger-filters--sub" role="tablist" aria-label="Aktif ders türü">
+            {AKTIF_KINDS.map((kind) => (
+              <button
+                key={kind.id}
+                type="button"
+                role="tab"
+                aria-selected={aktifKind === kind.id}
+                className={aktifKind === kind.id ? 'admin-tab is-active' : 'admin-tab'}
+                onClick={() => setAktifKind(kind.id)}
+              >
+                {kind.label}
+                <span className="ledger-count">{clients.filter((client) => inLedgerView(client, `aktif-${kind.id}`)).length}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <p className="sheet-copy">
           {ledgerView === 'nakit' && 'Nakit giriş ekranı ve nakit kaydı olan öğrenciler. İsim arayıp kaydı olan öğrenciye yeni tahsilat eklenir.'}
-          {ledgerView === 'aktif' && 'Ders sayısı girilmiş danışanlar.'}
+          {ledgerView === 'aktif' && aktifKind === 'grup' && 'Grup dersi satın alanlar. Şimdilik ders sayısı girilmiş herkes burada.'}
+          {ledgerView === 'aktif' && aktifKind === 'ozel' && 'Özel ders alanlar.'}
           {ledgerView === 'pasif' && 'Ders sayısı 0 olanlar ve ödemesi görünmeyenler. Önceden kayıt alıp ödeme yapmayanlar burada durur.'}
           {ledgerView === 'kart' && 'Yalnızca siteden kendi girişi ile kartla ödeyen üyeler.'}
           {ledgerView === 'harici' && 'Kartla ödeyip sitede kendi hesabıyla giriş yapmamış olanlar.'}
         </p>
-        {ledgerView !== 'nakit' && (clients.filter((client) => inLedgerView(client, ledgerView)).length === 0 ? (
+        {ledgerView !== 'nakit' && (clients.filter((client) => inLedgerView(client, ledgerView === 'aktif' ? `aktif-${aktifKind}` : ledgerView)).length === 0 ? (
           <p className="sheet-copy">Bu bölümde danışan yok.</p>
         ) : (
           <div className="table-wrap">
@@ -672,7 +701,7 @@ function AdminGate({ onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {clients.filter((client) => inLedgerView(client, ledgerView)).map((client) => {
+                {clients.filter((client) => inLedgerView(client, ledgerView === 'aktif' ? `aktif-${aktifKind}` : ledgerView)).map((client) => {
                   const name = splitName(client.full_name)
                   return (
                     <tr key={client.id}>
