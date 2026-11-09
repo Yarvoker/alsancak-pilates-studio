@@ -1,0 +1,41 @@
+.hours-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.hours-list {
+  display: grid;
+  gap: 10px;
+}
+
+.hours-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) 1fr 1fr;
+  gap: 10px;
+  align-items: end;
+}
+
+.hours-row span {
+  font-weight: 650;
+}
+
+.hours-holiday {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+@media (max-width: 720px) {
+  .hours-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hours-row span {
+    grid-column: 1 / -1;
+  }
+}
