@@ -269,7 +269,7 @@ function PilatesApp() {
           <Route path="/iptal-iade" element={<LegalPage contentKey="iptal_iade" title="İptal ve İade" />} />
           <Route path="/mesafeli-satis" element={<LegalPage contentKey="mesafeli_satis" title="Mesafeli Satış Sözleşmesi" />} />
           <Route path="/cerez" element={<LegalPage contentKey="cerez" title="Çerez Politikası" />} />
-          <Route path="/" element={<><
+          <Route path="/" element={<>
         {checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
