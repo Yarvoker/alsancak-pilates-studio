@@ -17,7 +17,7 @@ const portraits = [
 ]
 
 const onderFrame =
-  '<div className="instructor-frame">{name === \'\Önder Güzel\' ? <img className="trainer-portrait" src="/trainers/onder-guzel.jpg" alt="\Önder Güzel" width="989" height="1200" loading="lazy" decoding="async" /> : name === \'Emel Gamze Güzel\' ? <img className="trainer-portrait emel-portrait" src="/trainers/emel-gamze-guzel.jpg" alt="Emel Gamze Güzel" width="1086" height="1356" loading="lazy" decoding="async" /> : null}</div>'
+  "<div className=\"instructor-frame\">{name === '\u00d6nder G\u00fczel' ? <img className=\"trainer-portrait\" src=\"/trainers/onder-guzel.jpg\" alt=\"\u00d6nder G\u00fczel\" width=\"989\" height=\"1200\" loading=\"lazy\" decoding=\"async\" /> : name === 'Emel Gamze G\u00fczel' ? <img className=\"trainer-portrait emel-portrait\" src=\"/trainers/emel-gamze-guzel.jpg\" alt=\"Emel Gamze G\u00fczel\" width=\"1086\" height=\"1356\" loading=\"lazy\" decoding=\"async\" /> : null}</div>"
 
 async function writePortrait(root, portrait) {
   const response = await fetch(portrait.url)
