@@ -37,6 +37,14 @@ import {
   todayIso,
 } from './slotRules.js'
 
+const TEACHER_PORTRAITS = {
+  'Önder Güzel': { src: '/trainers/onder-guzel.jpg', position: 'center 18%' },
+  'Emel Gamze Güzel': { src: '/trainers/emel-gamze-guzel.jpg', position: 'center 32%' },
+  'Devran Çiçek': { src: '/trainers/devran-cicek.jpg', position: 'center 42%' },
+  'Ecrin Aydınlı': { src: '/trainers/ecrin-aydinli.jpg', position: 'center 28%' },
+  'Cemal Ayhan': { src: '/trainers/cemal-ayhan.jpg', position: 'center 34%' },
+}
+
 async function fetchSpan(from, to) {
   try {
     return await fetchBookableSlots(from, to)
@@ -668,6 +676,7 @@ function BookingPanel({ authUser = null }) {
             <div className="teacher-grid">
               {teachers.map((person) => {
                 const selected = person.id === teacherId
+                const portrait = TEACHER_PORTRAITS[person.full_name]
                 return (
                   <button
                     key={person.id}
@@ -677,8 +686,20 @@ function BookingPanel({ authUser = null }) {
                     onClick={() => chooseTeacher(person)}
                     disabled={actionBusy}
                   >
-                    <strong>{person.full_name}</strong>
-                    <span className="teacher-badge">{badge}</span>
+                    {portrait && (
+                      <img
+                        className="teacher-photo"
+                        src={portrait.src}
+                        alt=""
+                        style={{ objectPosition: portrait.position }}
+                        width="160"
+                        height="112"
+                      />
+                    )}
+                    <span className="teacher-card-meta">
+                      <strong>{person.full_name}</strong>
+                      <span className="teacher-badge">{badge}</span>
+                    </span>
                   </button>
                 )
               })}
