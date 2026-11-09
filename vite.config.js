@@ -63,6 +63,7 @@ const portraitMap = `const trainerPortraits = {
 function materializeTrainerPortraits(root = process.cwd()) {
   return {
     name: 'materialize-trainer-portraits',
+    enforce: 'pre',
     buildStart() {
       writeCompletePortraits(root)
     },
