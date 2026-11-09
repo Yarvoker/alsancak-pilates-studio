@@ -44,6 +44,16 @@ export default function TrainerRoster() {
                 loading="lazy"
                 decoding="async"
               />
+            ) : name === 'Ecrin Aydınlı' ? (
+              <img
+                className="trainer-portrait ecrin-portrait"
+                src="/trainers/ecrin-aydinli.jpg"
+                alt="Ecrin Aydınlı"
+                width="1536"
+                height="1815"
+                loading="lazy"
+                decoding="async"
+              />
             ) : null}
           </div>
           <p className="instructor-name">{name}</p>
