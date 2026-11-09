@@ -18,6 +18,13 @@ const KNOWN_MESSAGES = [
   'Bağlama kararı geçersiz',
   'Bağlama isteği bulunamadı',
   'Bağlama onaylanamadı',
+  'Bu hesap zaten bu kayıtta',
+  'Bu kaydın zaten bir site hesabı var',
+  'Hesap bulunamadı',
+  'Aynı derse iki kayıt var',
+  'Aynı bekleyen paket isteği var',
+  'Kayıt taşınamadı',
+  'Kredi defteri uyuşmuyor',
   'Geçersiz tarih aralığı',
   'Antrenör bulunamadı',
   'Paket bulunamadı',
@@ -106,6 +113,27 @@ export async function fetchLinkRequests(username, password) {
   })
   if (error) throw error
   return data ?? []
+}
+
+export async function searchSiteAccounts(username, password, query) {
+  const { data, error } = await supabase.rpc('admin_search_site_accounts', {
+    p_username: username,
+    p_password: password,
+    p_query: query,
+  })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function linkMemberAccount(username, password, memberId, userId) {
+  const { data, error } = await supabase.rpc('admin_link_member_account', {
+    p_username: username,
+    p_password: password,
+    p_member_id: memberId,
+    p_user_id: userId,
+  })
+  if (error) throw error
+  return data
 }
 
 export async function decideLinkRequest(username, password, requestId, decision) {
