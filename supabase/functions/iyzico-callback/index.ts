@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
 
   const stored = storedData as StoredPayment;
   if (stored.status === "paid") {
-    return page("Ödeme alındı", "Ödeme alındı. Paket 30 gün için açıldı.");
+    return page("Ödeme alındı", "Ödeme alındı. Paket 45 gün için açıldı.");
   }
   if (stored.status !== "pending" || stored.currency !== "TRY") {
     return page("Ödeme", "Ödeme tamamlanmadı.");
@@ -190,5 +190,5 @@ Deno.serve(async (req: Request) => {
     return page("Ödeme", "Ödeme tamamlanmadı.");
   }
 
-  return page("Ödeme alındı", "Ödeme alındı. Paket 30 gün için açıldı.");
+  return page("Ödeme alındı", "Ödeme alındı. Paket 45 gün için açıldı.");
 });
