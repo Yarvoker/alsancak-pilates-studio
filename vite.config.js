@@ -14,10 +14,15 @@ const portraits = [
     file: 'emel-gamze-guzel.jpg',
     label: 'Emel',
   },
+  {
+    url: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/trainer-portraits/devran-cicek.jpg',
+    file: 'devran-cicek.jpg',
+    label: 'Devran',
+  },
 ]
 
 const onderFrame =
-  "<div className=\"instructor-frame\">{name === '\u00d6nder G\u00fczel' ? <img className=\"trainer-portrait\" src=\"/trainers/onder-guzel.jpg\" alt=\"\u00d6nder G\u00fczel\" width=\"989\" height=\"1200\" loading=\"lazy\" decoding=\"async\" /> : name === 'Emel Gamze G\u00fczel' ? <img className=\"trainer-portrait emel-portrait\" src=\"/trainers/emel-gamze-guzel.jpg\" alt=\"Emel Gamze G\u00fczel\" width=\"1086\" height=\"1356\" loading=\"lazy\" decoding=\"async\" /> : null}</div>"
+  "<div className=\"instructor-frame\">{name === '\u00d6nder G\u00fczel' ? <img className=\"trainer-portrait\" src=\"/trainers/onder-guzel.jpg\" alt=\"\u00d6nder G\u00fczel\" width=\"989\" height=\"1200\" loading=\"lazy\" decoding=\"async\" /> : name === 'Emel Gamze G\u00fczel' ? <img className=\"trainer-portrait emel-portrait\" src=\"/trainers/emel-gamze-guzel.jpg\" alt=\"Emel Gamze G\u00fczel\" width=\"1086\" height=\"1356\" loading=\"lazy\" decoding=\"async\" /> : name === 'Devran \u00c7i\u00e7ek' ? <img className=\"trainer-portrait devran-portrait\" src=\"/trainers/devran-cicek.jpg\" alt=\"Devran \u00c7i\u00e7ek\" width=\"2048\" height=\"1984\" loading=\"lazy\" decoding=\"async\" /> : null}</div>"
 
 async function writePortrait(root, portrait) {
   const response = await fetch(portrait.url)
