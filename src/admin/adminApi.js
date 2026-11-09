@@ -30,6 +30,7 @@ const KNOWN_MESSAGES = [
   'Tahsilat tarihi geçersiz',
   'Not çok uzun',
   'Öğretmen seç',
+  'Grup veya özel ders seç',
   'İsim ve soyisim gerekli',
   'Telefon numarası geçersiz',
   'Bu telefonla kayıtlı üyelik var',
@@ -283,7 +284,7 @@ export async function setRemainingLessons(username, password, memberId, remainin
   return data
 }
 
-export async function recordCashPayment(username, password, memberId, amount, lessonCount, receivedOn, note, teacherId) {
+export async function recordCashPayment(username, password, memberId, amount, lessonCount, receivedOn, note, teacherId, sessionType) {
   const { data, error } = await supabase.rpc('admin_record_cash_payment', {
     p_username: username,
     p_password: password,
@@ -293,6 +294,7 @@ export async function recordCashPayment(username, password, memberId, amount, le
     p_received_on: receivedOn,
     p_note: note || null,
     p_teacher_id: teacherId,
+    p_session_type: sessionType,
   })
   if (error) throw error
   return data
