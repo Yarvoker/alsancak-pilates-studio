@@ -19,3 +19,35 @@
 .admin-tab.is-active .ledger-count {
   background: rgba(13, 31, 26, 0.16);
 }
+
+.cash-search {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.cash-results {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.cash-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 239, 231, 0.16);
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cash-picked {
+  margin: 0 0 14px;
+  color: var(--gold-soft);
+}
