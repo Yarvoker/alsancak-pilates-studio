@@ -203,6 +203,19 @@ export async function copyShiftPattern(username, password, month, mode) {
   return data
 }
 
+export async function fillMonthFromHours(username, password, month, hours, holidays) {
+  const { data, error } = await supabase.rpc('admin_fill_month_from_hours', {
+    p_username: username,
+    p_password: password,
+    p_month: month,
+    p_hours: hours,
+    p_holidays: holidays,
+    p_force: false,
+  })
+  if (error) throw error
+  return data
+}
+
 export async function activateMemberPackage(username, password, purchaseId) {
   const { data, error } = await supabase.rpc('admin_activate_package', {
     p_username: username,

@@ -5,6 +5,7 @@ import {
   copyShiftPattern,
   fetchAdminShifts,
   fetchAdminTeachers,
+  fillMonthFromHours,
   saveTeacherShifts,
 } from './adminApi.js'
 import { formatMonthTitle, monthBounds, monthKeyFromIso, shiftMonth } from '../booking/bookingCalendar.js'
@@ -25,6 +26,12 @@ function labelShift(shifts) {
   return shifts.map((item) => `${item.start_time}-${item.end_time}`).join(', ')
 }
 
+function defaultRange(name) {
+  const key = (name || '').toLocaleLowerCase('tr-TR')
+  if (key.includes('ecrin')) return { start: '12:00', end: '21:00' }
+  return { start: '07:00', end: '21:00' }
+}
+
 function ShiftsPanel({ session, onNotice }) {
   const [monthKey, setMonthKey] = useState(() => monthKeyFromIso(todayIso()))
   const [teachers, setTeachers] = useState([])
@@ -34,8 +41,22 @@ function ShiftsPanel({ session, onNotice }) {
   const [editor, setEditor] = useState(null)
   const [drafts, setDrafts] = useState([])
   const [blocked, setBlocked] = useState([])
+  const [ranges, setRanges] = useState({})
+  const [holidays, setHolidays] = useState([])
+  const [holidayDraft, setHolidayDraft] = useState('')
 
   const days = useMemo(() => monthDays(monthKey), [monthKey])
+
+  useEffect(() => {
+    if (!teachers.length) return
+    setRanges((current) => {
+      const next = { ...current }
+      for (const person of teachers) {
+        if (!next[person.id]) next[person.id] = defaultRange(person.full_name)
+      }
+      return next
+    })
+  }, [teachers])
 
   async function load(key = monthKey) {
     const [people, table] = await Promise.all([
@@ -99,6 +120,49 @@ function ShiftsPanel({ session, onNotice }) {
     }
   }
 
+  async function fillFromHours() {
+    const hours = teachers
+      .map((person) => {
+        const range = ranges[person.id] || defaultRange(person.full_name)
+        return { teacher_id: person.id, start: range.start, end: range.end }
+      })
+      .filter((item) => item.start && item.end && item.end > item.start)
+    if (!hours.length) {
+      setError('Önce öğretmen saatlerini yaz.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const result = await fillMonthFromHours(
+        session.username,
+        session.password,
+        `${monthKey}-01`,
+        hours,
+        holidays,
+      )
+      await load()
+      const skipped = result?.skipped?.length || 0
+      onNotice(skipped
+        ? `${result.written} gün yazıldı. ${skipped} gün rezervasyon nedeniyle atlandı. Pazar ve tatiller kapalı.`
+        : 'Ay, yazdığın saatlere göre doldu. Pazar ve tatiller kapalı.')
+    } catch (fillError) {
+      setError(adminMessage(fillError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function addHoliday() {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(holidayDraft)) {
+      setError('Tatil için bir tarih seç.')
+      return
+    }
+    setError('')
+    setHolidays((current) => (current.includes(holidayDraft) ? current : [...current, holidayDraft].sort()))
+    setHolidayDraft('')
+  }
+
   async function copy(mode) {
     setBusy(true)
     setError('')
@@ -119,6 +183,64 @@ function ShiftsPanel({ session, onNotice }) {
   return (
     <section className="admin-block">
       <h2>Mesai tablosu</h2>
+      <div className="hours-panel">
+        <h3>Çalışma saatleri</h3>
+        <p className="sheet-copy">
+          Saatleri buraya yaz. Ayı doldurunca her çalışma gününe işlenir. Pazar stüdyo kapalıdır. Seçtiğin tatil günü de — kalır.
+        </p>
+        <div className="hours-list">
+          {teachers.map((person) => {
+            const range = ranges[person.id] || defaultRange(person.full_name)
+            return (
+              <div className="hours-row" key={person.id}>
+                <span>{person.full_name}</span>
+                <label>
+                  Başlangıç
+                  <input
+                    type="time"
+                    value={range.start}
+                    onChange={(event) => setRanges((current) => ({
+                      ...current,
+                      [person.id]: { ...range, start: event.target.value },
+                    }))}
+                  />
+                </label>
+                <label>
+                  Bitiş
+                  <input
+                    type="time"
+                    value={range.end}
+                    onChange={(event) => setRanges((current) => ({
+                      ...current,
+                      [person.id]: { ...range, end: event.target.value },
+                    }))}
+                  />
+                </label>
+              </div>
+            )
+          })}
+        </div>
+        <div className="hours-holiday">
+          <label>
+            Tatil günü
+            <input type="date" value={holidayDraft} onChange={(event) => setHolidayDraft(event.target.value)} />
+          </label>
+          <button type="button" className="cta ghost" onClick={addHoliday}>Tatil ekle</button>
+          {holidays.map((iso) => (
+            <button
+              key={iso}
+              type="button"
+              className="text-button"
+              onClick={() => setHolidays((current) => current.filter((item) => item !== iso))}
+            >
+              {iso} · kaldır
+            </button>
+          ))}
+        </div>
+        <button type="button" className="cta" disabled={busy || !teachers.length} onClick={fillFromHours}>
+          Bu saatlerle ayı doldur
+        </button>
+      </div>
       <div className="month-cal-bar shift-month-bar">
         <button type="button" className="month-cal-arrow" aria-label="Önceki ay" onClick={() => setMonthKey(shiftMonth(monthKey, -1))}>‹</button>
         <h3 className="month-cal-title">{formatMonthTitle(monthKey)}</h3>
@@ -142,7 +264,7 @@ function ShiftsPanel({ session, onNotice }) {
             <tr>
               <th>Öğretmen</th>
               {days.map((iso) => (
-                <th key={iso} className={studioWeekday(iso) === 0 ? 'is-closed' : ''}>{Number(iso.slice(8))}</th>
+                <th key={iso} className={studioWeekday(iso) === 0 || holidays.includes(iso) ? 'is-closed' : ''}>{Number(iso.slice(8))}</th>
               ))}
             </tr>
           </thead>
@@ -152,7 +274,7 @@ function ShiftsPanel({ session, onNotice }) {
                 <th>{person.full_name}</th>
                 {days.map((iso) => {
                   const items = cellShifts(person.id, iso)
-                  const closed = studioWeekday(iso) === 0
+                  const closed = studioWeekday(iso) === 0 || holidays.includes(iso)
                   return (
                     <td key={iso} className={closed ? 'is-closed' : ''}>
                       <button type="button" className="shift-cell" onClick={() => openCell(person, iso)}>
