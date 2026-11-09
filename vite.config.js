@@ -24,7 +24,7 @@ function encodedParts(root, name) {
   const textOf = (file) => fs.readFileSync(path.join(dir, file), 'utf8').replace(/\s+/g, '')
   const joined = files.map(textOf).join('')
   if (joined.length === want) return joined
-  const sequential = files.filter((file) => /\.part\d{2}[ab]\d?$/.test(file))
+  const sequential = files.filter((file) => /\.part\d{2}[ab]\d$/.test(file) || /\.part1[12]$/.test(file))
   const sequentialText = sequential.map(textOf).join('')
   return sequentialText.length === want ? sequentialText : ''
 }
