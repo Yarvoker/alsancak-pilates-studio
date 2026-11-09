@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
 
 const PACKAGE_OPTIONS = [
@@ -21,6 +21,15 @@ function moneyLabel(value) {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return '—'
   return `${new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} TL`
+}
+
+function foldText(value) {
+  return String(value ?? '').toLocaleLowerCase('tr-TR')
+}
+
+function matchesClient(client, needle) {
+  if (!needle) return true
+  return foldText(client.full_name).includes(needle) || String(client.phone || '').includes(needle)
 }
 
 export default function LedgerRest({
@@ -88,26 +97,69 @@ export default function LedgerRest({
   setExistingPaidOn,
   setExistingNote,
   submitExisting,
+  ledgerView = 'aktif',
 }) {
+  const [cashQuery, setCashQuery] = useState('')
+  const [cashPicked, setCashPicked] = useState(false)
+  const needle = cashQuery.trim().toLocaleLowerCase('tr-TR')
+  const selected = clients.find((client) => client.id === cashMemberId) || null
+  const searchHits = needle.length < 2 || cashPicked
+    ? []
+    : clients.filter((client) => matchesClient(client, needle)).slice(0, 8)
+  const cashStudents = clients
+    .filter((client) => client.has_cash)
+    .filter((client) => cashPicked || matchesClient(client, needle))
+
+  function pickClient(client) {
+    setCashMemberId(client.id)
+    setCashQuery(client.full_name || '')
+    setCashPicked(true)
+  }
+
   return (
     <Fragment>
+      {ledgerView === 'nakit' && (
       <section className="admin-block">
         <h2>Nakit olarak kaydet</h2>
         <p className="sheet-copy">
-          Tutar kayda geçer. Ders adedi yazılırsa o kadar hak eklenir. Öğretmen seçilir. Mevcut danışan bilgisi silinmez.
+          Sistemde isim ara. Kaydı olan öğrenciye yeni nakit tahsilat eklenir. Eski kayıt ve ders bilgisi durur.
         </p>
+        <label className="cash-search">
+          Öğrenci ara
+          <input
+            value={cashQuery}
+            onChange={(event) => {
+              setCashQuery(event.target.value)
+              setCashPicked(false)
+              if (!event.target.value.trim()) setCashMemberId('')
+            }}
+            placeholder="Ad, soyad veya telefon"
+            autoComplete="off"
+          />
+        </label>
+        {searchHits.length > 0 && (
+          <div className="cash-results" role="listbox" aria-label="Eşleşen öğrenciler">
+            {searchHits.map((client) => (
+              <button key={client.id} type="button" className="cash-result" onClick={() => pickClient(client)}>
+                <span>
+                  {client.full_name || '—'}
+                  <span className="admin-sub">{client.phone || 'numarasız'} · {client.has_cash ? 'nakit kaydı var' : 'nakit kaydı yok'}</span>
+                </span>
+                <span>Kayıt ekle</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {needle.length >= 2 && !cashPicked && searchHits.length === 0 && (
+          <p className="sheet-copy">Bu isim sistemde yok.</p>
+        )}
+        {selected && (
+          <p className="cash-picked">
+            Seçilen: {selected.full_name} · {selected.phone || 'numarasız'}
+            {selected.has_cash ? ' · mevcut nakit kaydına eklenir' : ' · ilk nakit kaydı açılır'}
+          </p>
+        )}
         <form className="admin-desk admin-desk--cash" onSubmit={submitCash}>
-          <label>
-            Danışan
-            <select value={cashMemberId} onChange={(event) => setCashMemberId(event.target.value)} required>
-              <option value="">Seç</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.full_name} · {client.phone || 'numarasız'}
-                </option>
-              ))}
-            </select>
-          </label>
           <label>
             Öğretmen
             <select value={cashTeacherId} onChange={(event) => setCashTeacherId(event.target.value)} required>
@@ -133,47 +185,45 @@ export default function LedgerRest({
             Not
             <input value={cashNote} maxLength={400} onChange={(event) => setCashNote(event.target.value)} placeholder="İsteğe bağlı" />
           </label>
-          <button type="submit" className="cta" disabled={busy || clients.length === 0 || !teachers.some((person) => person.active)}>
+          <button type="submit" className="cta" disabled={busy || !cashMemberId || !teachers.some((person) => person.active)}>
             {busy ? 'Kaydediliyor' : 'Nakit olarak kaydet'}
           </button>
         </form>
 
-        <h3>Son nakit kayıtları</h3>
-        {receipts.length === 0 ? (
-          <p className="sheet-copy">Nakit kaydı yok.</p>
+        <h3>Nakit kaydı olan öğrenciler</h3>
+        {cashStudents.length === 0 ? (
+          <p className="sheet-copy">Nakit kaydı olan öğrenci yok.</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Tarih</th>
-                  <th>Danışan</th>
-                  <th>Öğretmen</th>
-                  <th>Tutar</th>
-                  <th>Eklenen ders</th>
-                  <th>Not</th>
+                  <th>Öğrenci</th>
+                  <th>Telefon</th>
+                  <th>Kayıt</th>
                 </tr>
               </thead>
               <tbody>
-                {receipts.map((receipt) => (
-                  <tr key={receipt.id}>
-                    <td>{formatStudioDate(receipt.received_on)}</td>
-                    <td>
-                      {receipt.full_name || '—'}
-                      <span className="admin-sub">{receipt.phone || '—'}</span>
-                    </td>
-                    <td>{receipt.teacher_name || '—'}</td>
-                    <td>{moneyLabel(receipt.amount)}</td>
-                    <td>{receipt.lesson_count}</td>
-                    <td>{receipt.note || '—'}</td>
-                  </tr>
+                {cashStudents.map((client) => (
+                    <tr key={client.id}>
+                      <td>{client.full_name || '—'}</td>
+                      <td>{client.phone || '—'}</td>
+                      <td>
+                        <div className="attendance-actions">
+                          <button type="button" onClick={() => pickClient(client)} disabled={busy}>Kayıt ekle</button>
+                        </div>
+                      </td>
+                    </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
       </section>
+      )}
 
+      {ledgerView !== 'nakit' && (
+      <Fragment>
       <section className="admin-block">
         <h2>Eski müşteri</h2>
         <p className="sheet-copy">
@@ -491,6 +541,8 @@ export default function LedgerRest({
           </div>
         )}
       </section>
+      </Fragment>
+      )}
     </Fragment>
   )
 }
