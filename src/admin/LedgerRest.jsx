@@ -231,12 +231,11 @@ export default function LedgerRest({
       </section>
       )}
 
-      {ledgerView !== 'nakit' && (
-      <Fragment>
+      {ledgerView === 'pasif' && (
       <section className="admin-block">
         <h2>Eski müşteri</h2>
         <p className="sheet-copy">
-          Listede olmayan danışanı buradan ekle. Kalan ders, seçilen başlangıç gününden itibaren 30 gün geçerlidir. Tutar boş bırakılırsa ödeme kaydı açılmaz. Tutar yazılırsa nakit olarak kayda geçer ve ders hakkını ayrıca artırmaz.
+          Listede olmayan danışanı buradan ekle. Telefon boş kalabilir. Kalan ders, seçilen başlangıç gününden itibaren 30 gün geçerlidir. Tutar boş bırakılırsa ödeme kaydı açılmaz. Tutar yazılırsa nakit olarak kayda geçer ve ders hakkını ayrıca artırmaz.
         </p>
         <form className="admin-desk admin-desk--existing" onSubmit={submitExisting}>
           <label>
@@ -249,7 +248,7 @@ export default function LedgerRest({
           </label>
           <label>
             Telefon
-            <input value={existingPhone} onChange={(event) => setExistingPhone(event.target.value)} inputMode="tel" placeholder="05xx" required />
+            <input value={existingPhone} onChange={(event) => setExistingPhone(event.target.value)} inputMode="tel" placeholder="Boş kalabilir" />
           </label>
           <label>
             Öğretmen
@@ -288,7 +287,10 @@ export default function LedgerRest({
           </div>
         </form>
       </section>
+      )}
 
+      {ledgerView !== 'nakit' && (
+      <Fragment>
       <section className="admin-block">
         <h2>Kasa</h2>
         <p className="sheet-copy">
