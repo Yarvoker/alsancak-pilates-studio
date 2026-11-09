@@ -6,7 +6,6 @@ import {
   fetchAdminClients,
   fetchAdminMemberDashboard,
   fetchDeletionRequests,
-  openStudioWeek,
   fetchBookingInquiries,
   fetchLessonHistory,
   fetchLinkRequests,
@@ -256,22 +255,6 @@ function AdminGate({ onClose }) {
       setNotice(decision === 'approved' ? 'Telefon bağlandı.' : 'Bağlama isteği reddedildi.')
     } catch (decideError) {
       setError(adminMessage(decideError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function openWeek() {
-    if (!session) return
-    setBusy(true)
-    setError('')
-    setNotice('')
-
-    try {
-      const result = await openStudioWeek(session.username, session.password, 'both')
-      setNotice(`${result.hours} saatte özel ders ve grup dersi birlikte açık.`)
-    } catch (openError) {
-      setError(adminMessage(openError))
     } finally {
       setBusy(false)
     }
@@ -618,14 +601,6 @@ function AdminGate({ onClose }) {
 
       {deskTab === 'ledger' && (
       <div id="admin-panel-ledger" role="tabpanel" aria-labelledby="admin-tab-ledger">
-      <section className="admin-block">
-        <h2>Haftalık dersler</h2>
-        <p className="sheet-copy">Bugünden itibaren bir haftalık her saatte özel ders (2 kişi) ve grup dersi (14 kişi) birlikte açılır.</p>
-        <div className="sheet-actions">
-          <button type="button" className="cta" disabled={busy} onClick={openWeek}>Özel ve grup dersini aç</button>
-        </div>
-      </section>
-
       <section className="admin-block">
         <h2>Danışanlar</h2>
         {clients.length === 0 ? (
