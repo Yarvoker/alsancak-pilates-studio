@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
+import { adminMessage } from './adminApi.js'
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
 
 const PACKAGE_OPTIONS = [
@@ -30,6 +31,11 @@ function foldText(value) {
 function matchesClient(client, needle) {
   if (!needle) return true
   return foldText(client.full_name).includes(needle) || String(client.phone || '').includes(needle)
+}
+
+function clientHasLogin(client) {
+  if (typeof client?.has_login === 'boolean') return client.has_login
+  return Boolean(client?.sign_in_method)
 }
 
 export default function LedgerRest({
@@ -99,10 +105,20 @@ export default function LedgerRest({
   setExistingPaidOn,
   setExistingNote,
   submitExisting,
+  searchSiteAccounts,
+  linkAccounts,
   ledgerView = 'aktif',
 }) {
   const [cashQuery, setCashQuery] = useState('')
   const [cashPicked, setCashPicked] = useState(false)
+  const [deskQuery, setDeskQuery] = useState('')
+  const [deskPicked, setDeskPicked] = useState(null)
+  const [accountQuery, setAccountQuery] = useState('')
+  const [accountHits, setAccountHits] = useState([])
+  const [accountPicked, setAccountPicked] = useState(null)
+  const [accountSearching, setAccountSearching] = useState(false)
+  const [linkSearchError, setLinkSearchError] = useState('')
+  const accountSearchSeq = useRef(0)
   const needle = cashQuery.trim().toLocaleLowerCase('tr-TR')
   const selected = clients.find((client) => client.id === cashMemberId) || null
   const searchHits = needle.length < 2 || cashPicked
@@ -116,6 +132,79 @@ export default function LedgerRest({
     setCashMemberId(client.id)
     setCashQuery(client.full_name || '')
     setCashPicked(true)
+  }
+
+  const deskNeedle = deskQuery.trim().toLocaleLowerCase('tr-TR')
+  const deskHits = deskNeedle.length < 2 || deskPicked
+    ? []
+    : clients
+      .filter((client) => matchesClient(client, deskNeedle))
+      .sort((left, right) => {
+        const loginOrder = Number(clientHasLogin(left)) - Number(clientHasLogin(right))
+        if (loginOrder !== 0) return loginOrder
+        return foldText(left.full_name).localeCompare(foldText(right.full_name), 'tr')
+      })
+      .slice(0, 8)
+  const sameMember = Boolean(
+    deskPicked
+    && accountPicked?.member_id
+    && accountPicked.member_id === deskPicked.id,
+  )
+
+  function pickDesk(client) {
+    setDeskPicked(client)
+    setDeskQuery(client.full_name || '')
+  }
+
+  async function onAccountQuery(value) {
+    setAccountQuery(value)
+    setAccountPicked(null)
+    setLinkSearchError('')
+    const needle = value.trim()
+    if (needle.length < 2) {
+      accountSearchSeq.current += 1
+      setAccountHits([])
+      setAccountSearching(false)
+      return
+    }
+    const seq = accountSearchSeq.current + 1
+    accountSearchSeq.current = seq
+    setAccountSearching(true)
+    try {
+      const rows = await searchSiteAccounts(needle)
+      if (seq !== accountSearchSeq.current) return
+      setAccountHits(Array.isArray(rows) ? rows.slice(0, 8) : [])
+    } catch (searchError) {
+      if (seq !== accountSearchSeq.current) return
+      setAccountHits([])
+      setLinkSearchError(adminMessage(searchError))
+    } finally {
+      if (seq === accountSearchSeq.current) setAccountSearching(false)
+    }
+  }
+
+  async function submitManualLink(event) {
+    event.preventDefault()
+    if (!deskPicked || !accountPicked || sameMember) return
+    const name = deskPicked.full_name || 'Bu kayıt'
+    const accountLabel = accountPicked.email
+      ? `${accountPicked.email} hesabı`
+      : 'e-postası olmayan hesap'
+    const accepted = window.confirm(
+      `${name} kaydına ${accountLabel} bağlanacak. Ders ve ödemeler bu kayıtta kalacak.`,
+    )
+    if (!accepted) return
+    try {
+      await linkAccounts(deskPicked.id, accountPicked.user_id)
+      setDeskQuery('')
+      setDeskPicked(null)
+      setAccountQuery('')
+      setAccountPicked(null)
+      setAccountHits([])
+      setLinkSearchError('')
+    } catch {
+      // The admin shell shows the translated error.
+    }
   }
 
   return (
@@ -414,6 +503,127 @@ export default function LedgerRest({
             </table>
           </div>
         )}
+      </section>
+
+      <section className="admin-block">
+        <h2>Elle eşleştir</h2>
+        <p className="sheet-copy">
+          Defterdeki müşteri kaydı durur. Seçilen site hesabı bu kayda bağlanır. Ders ve ödemeler bu kayıtta kalır.
+        </p>
+        <form onSubmit={submitManualLink}>
+          <div className="link-match">
+            <div>
+              <label className="cash-search">
+                Defterdeki müşteri
+                <input
+                  value={deskQuery}
+                  onChange={(event) => {
+                    setDeskQuery(event.target.value)
+                    setDeskPicked(null)
+                  }}
+                  placeholder="Ad, soyad veya telefon"
+                  autoComplete="off"
+                />
+              </label>
+              {deskHits.length > 0 && (
+                <div className="cash-results" role="listbox" aria-label="Defterdeki müşteriler">
+                  {deskHits.map((client) => (
+                    <button key={client.id} type="button" className="cash-result" onClick={() => pickDesk(client)}>
+                      <span>
+                        {client.full_name || '—'}
+                        <span className="admin-sub">
+                          {client.phone || 'numarasız'}
+                          {' · '}
+                          {client.credits_remaining} ders
+                          {' · '}
+                          {clientHasLogin(client) ? (client.sign_in_method || 'site girişi var') : 'site girişi yok'}
+                        </span>
+                      </span>
+                      <span>Seç</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {deskNeedle.length >= 2 && !deskPicked && deskHits.length === 0 && (
+                <p className="sheet-copy">Bu isim defterde yok.</p>
+              )}
+              {deskPicked && (
+                <p className="cash-picked">
+                  Seçilen: {deskPicked.full_name || '—'}
+                  {' · '}
+                  {deskPicked.phone || 'numarasız'}
+                  {' · '}
+                  {deskPicked.credits_remaining} ders
+                  {' · '}
+                  {clientHasLogin(deskPicked) ? (deskPicked.sign_in_method || 'site girişi var') : 'site girişi yok'}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="cash-search">
+                Sitede kayıt olan hesap
+                <input
+                  value={accountQuery}
+                  onChange={(event) => onAccountQuery(event.target.value)}
+                  placeholder="Ad, e-posta veya telefon"
+                  autoComplete="off"
+                />
+              </label>
+              {accountSearching && <p className="sheet-copy">Aranıyor</p>}
+              {linkSearchError && <p className="booking-error" role="alert">{linkSearchError}</p>}
+              {accountHits.length > 0 && !accountPicked && (
+                <div className="cash-results" role="listbox" aria-label="Sitede kayıt olan hesaplar">
+                  {accountHits.map((account) => (
+                    <button
+                      key={account.user_id}
+                      type="button"
+                      className="cash-result"
+                      onClick={() => setAccountPicked(account)}
+                    >
+                      <span>
+                        {account.full_name || '—'}
+                        <span className="admin-sub">
+                          {account.email || 'e-posta yok'}
+                          {' · '}
+                          {account.phone || 'numarasız'}
+                          {' · '}
+                          {account.credits_remaining ?? 0} ders
+                        </span>
+                      </span>
+                      <span>Seç</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {accountQuery.trim().length >= 2 && !accountSearching && !accountPicked && accountHits.length === 0 && !linkSearchError && (
+                <p className="sheet-copy">Bu hesap sitede yok.</p>
+              )}
+              {accountPicked && (
+                <p className="cash-picked">
+                  Seçilen: {accountPicked.full_name || '—'}
+                  {' · '}
+                  {accountPicked.email || 'e-posta yok'}
+                  {' · '}
+                  {accountPicked.phone || 'numarasız'}
+                  {' · '}
+                  {accountPicked.credits_remaining ?? 0} ders
+                </p>
+              )}
+            </div>
+          </div>
+          {sameMember && (
+            <p className="booking-error" role="alert">Bu hesap zaten bu kayıtta</p>
+          )}
+          <div className="link-match-actions">
+            <button
+              type="submit"
+              className="cta"
+              disabled={busy || !deskPicked || !accountPicked || sameMember}
+            >
+              {busy ? 'Kaydediliyor' : 'Hesabı bağla'}
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="admin-block">
