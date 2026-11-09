@@ -1,3 +1,4 @@
+// Portrait bytes are assembled from sorted base64 parts at build time.
 import fs from 'node:fs'
 import path from 'node:path'
 
