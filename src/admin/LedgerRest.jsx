@@ -57,12 +57,14 @@ export default function LedgerRest({
   cashLessons,
   cashDate,
   cashNote,
+  cashSession,
   setCashMemberId,
   setCashTeacherId,
   setCashAmount,
   setCashLessons,
   setCashDate,
   setCashNote,
+  setCashSession,
   submitCash,
   decideLink,
   updateAttendance,
@@ -167,6 +169,13 @@ export default function LedgerRest({
               {teachers.filter((person) => person.active).map((person) => (
                 <option key={person.id} value={person.id}>{person.full_name}</option>
               ))}
+            </select>
+          </label>
+          <label>
+            Ders
+            <select value={cashSession} onChange={(event) => setCashSession(event.target.value)} required>
+              <option value="group">Grup dersi</option>
+              <option value="private">Özel ders</option>
             </select>
           </label>
           <label>
