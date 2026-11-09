@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { formatStudioDate, formatStudioWhen, todayIso } from '../booking/slotRules.js'
 
 const PACKAGE_OPTIONS = [
@@ -89,7 +90,90 @@ export default function LedgerRest({
   submitExisting,
 }) {
   return (
-    <>
+    <Fragment>
+      <section className="admin-block">
+        <h2>Nakit olarak kaydet</h2>
+        <p className="sheet-copy">
+          Tutar kayda geçer. Ders adedi yazılırsa o kadar hak eklenir. Öğretmen seçilir. Mevcut danışan bilgisi silinmez.
+        </p>
+        <form className="admin-desk admin-desk--cash" onSubmit={submitCash}>
+          <label>
+            Danışan
+            <select value={cashMemberId} onChange={(event) => setCashMemberId(event.target.value)} required>
+              <option value="">Seç</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.full_name} · {client.phone || 'numarasız'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Öğretmen
+            <select value={cashTeacherId} onChange={(event) => setCashTeacherId(event.target.value)} required>
+              <option value="">Seç</option>
+              {teachers.filter((person) => person.active).map((person) => (
+                <option key={person.id} value={person.id}>{person.full_name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Tutar (TL)
+            <input type="number" min="0.01" max="1000000" step="0.01" inputMode="decimal" value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} required />
+          </label>
+          <label>
+            Eklenen ders
+            <input type="number" min={0} max={500} step={1} inputMode="numeric" value={cashLessons} onChange={(event) => setCashLessons(event.target.value)} required />
+          </label>
+          <label>
+            Tarih
+            <input type="date" value={cashDate} max={todayIso()} onChange={(event) => setCashDate(event.target.value)} required />
+          </label>
+          <label>
+            Not
+            <input value={cashNote} maxLength={400} onChange={(event) => setCashNote(event.target.value)} placeholder="İsteğe bağlı" />
+          </label>
+          <button type="submit" className="cta" disabled={busy || clients.length === 0 || !teachers.some((person) => person.active)}>
+            {busy ? 'Kaydediliyor' : 'Nakit olarak kaydet'}
+          </button>
+        </form>
+
+        <h3>Son nakit kayıtları</h3>
+        {receipts.length === 0 ? (
+          <p className="sheet-copy">Nakit kaydı yok.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Danışan</th>
+                  <th>Öğretmen</th>
+                  <th>Tutar</th>
+                  <th>Eklenen ders</th>
+                  <th>Not</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receipts.map((receipt) => (
+                  <tr key={receipt.id}>
+                    <td>{formatStudioDate(receipt.received_on)}</td>
+                    <td>
+                      {receipt.full_name || '—'}
+                      <span className="admin-sub">{receipt.phone || '—'}</span>
+                    </td>
+                    <td>{receipt.teacher_name || '—'}</td>
+                    <td>{moneyLabel(receipt.amount)}</td>
+                    <td>{receipt.lesson_count}</td>
+                    <td>{receipt.note || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <section className="admin-block">
         <h2>Eski müşteri</h2>
         <p className="sheet-copy">
@@ -149,7 +233,7 @@ export default function LedgerRest({
       <section className="admin-block">
         <h2>Kasa</h2>
         <p className="sheet-copy">
-          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Başlangıçtan 30 gün sonra kullanım biter. Nakit tahsilatta tutar kayda geçer; ders adedi yazılırsa o kadar hak eklenir. İki kayıtta da öğretmen seçilir.
+          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Başlangıçtan 30 gün sonra kullanım biter. Öğretmen seçilir. Mevcut kayıt silinmez.
         </p>
         <h3>Kalan ders</h3>
         <form className="admin-desk admin-desk--balance" onSubmit={submitBalance}>
@@ -200,84 +284,6 @@ export default function LedgerRest({
           </button>
           {balanceExpiryLabel ? <p className="admin-expiry">{balanceExpiryLabel}</p> : null}
         </form>
-
-        <h3>Nakit tahsilat</h3>
-        <form className="admin-desk admin-desk--cash" onSubmit={submitCash}>
-          <label>
-            Danışan
-            <select value={cashMemberId} onChange={(event) => setCashMemberId(event.target.value)} required>
-              <option value="">Seç</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.full_name} · {client.phone || 'numarasız'}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Öğretmen
-            <select value={cashTeacherId} onChange={(event) => setCashTeacherId(event.target.value)} required>
-              <option value="">Seç</option>
-              {teachers.filter((person) => person.active).map((person) => (
-                <option key={person.id} value={person.id}>{person.full_name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Tutar (TL)
-            <input type="number" min="0.01" max="1000000" step="0.01" inputMode="decimal" value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} required />
-          </label>
-          <label>
-            Eklenen ders
-            <input type="number" min={0} max={500} step={1} inputMode="numeric" value={cashLessons} onChange={(event) => setCashLessons(event.target.value)} required />
-          </label>
-          <label>
-            Tarih
-            <input type="date" value={cashDate} max={todayIso()} onChange={(event) => setCashDate(event.target.value)} required />
-          </label>
-          <label>
-            Not
-            <input value={cashNote} maxLength={400} onChange={(event) => setCashNote(event.target.value)} placeholder="İsteğe bağlı" />
-          </label>
-          <button type="submit" className="cta" disabled={busy || clients.length === 0 || !teachers.some((person) => person.active)}>
-            {busy ? 'Kaydediliyor' : 'Nakit kaydı'}
-          </button>
-        </form>
-
-        <h3>Son nakit kayıtları</h3>
-        {receipts.length === 0 ? (
-          <p className="sheet-copy">Nakit kaydı yok.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tarih</th>
-                  <th>Danışan</th>
-                  <th>Öğretmen</th>
-                  <th>Tutar</th>
-                  <th>Eklenen ders</th>
-                  <th>Not</th>
-                </tr>
-              </thead>
-              <tbody>
-                {receipts.map((receipt) => (
-                  <tr key={receipt.id}>
-                    <td>{formatStudioDate(receipt.received_on)}</td>
-                    <td>
-                      {receipt.full_name || '—'}
-                      <span className="admin-sub">{receipt.phone || '—'}</span>
-                    </td>
-                    <td>{receipt.teacher_name || '—'}</td>
-                    <td>{moneyLabel(receipt.amount)}</td>
-                    <td>{receipt.lesson_count}</td>
-                    <td>{receipt.note || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
 
       <section className="admin-block">
@@ -485,6 +491,6 @@ export default function LedgerRest({
           </div>
         )}
       </section>
-    </>
+    </Fragment>
   )
 }
