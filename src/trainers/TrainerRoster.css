@@ -11,3 +11,7 @@
   object-fit: cover;
   object-position: center 18%;
 }
+
+.emel-portrait {
+  object-position: center 32%;
+}
