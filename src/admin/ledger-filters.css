@@ -5,6 +5,10 @@
   margin: 4px 0 12px;
 }
 
+.ledger-filters--sub {
+  margin: 0 0 12px 18px;
+}
+
 .ledger-count {
   display: inline-grid;
   place-items: center;
