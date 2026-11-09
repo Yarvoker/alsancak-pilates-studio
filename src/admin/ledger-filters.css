@@ -51,3 +51,7 @@
   margin: 0 0 14px;
   color: var(--gold-soft);
 }
+
+.admin-desk--cash {
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr) minmax(90px, 0.42fr) minmax(78px, 0.38fr) minmax(132px, 0.62fr) minmax(0, 0.85fr) auto;
+}
