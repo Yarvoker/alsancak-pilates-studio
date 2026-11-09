@@ -13,7 +13,7 @@ import './PilatesApp.css'
 import './admin/hours-panel.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
-const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seans%C4%B1%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum'
+const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seansı%20hakkında%20bilgi%20almak%20istiyorum'
 const mapsDirectionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=38.4348526,27.1427269'
 const mapsEmbedUrl = 'https://www.google.com/maps?q=38.4348526,27.1427269&z=16&output=embed'
 
@@ -269,9 +269,9 @@ function PilatesApp() {
           <Route path="/iptal-iade" element={<LegalPage contentKey="iptal_iade" title="İptal ve İade" />} />
           <Route path="/mesafeli-satis" element={<LegalPage contentKey="mesafeli_satis" title="Mesafeli Satış Sözleşmesi" />} />
           <Route path="/cerez" element={<LegalPage contentKey="cerez" title="Çerez Politikası" />} />
-          <Route path="/" element={< >
+          <Route path="/" element={<>
         {checkoutOpen && <PaymentPanel />}
-        {!checkoutOpen && (< >
+        {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
           <div className="hero-copy">
             <p className="eyebrow">ALSANCAK · İZMİR</p>
