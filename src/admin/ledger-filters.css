@@ -1,0 +1,21 @@
+.ledger-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.ledger-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4rem;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(13, 31, 26, 0.18);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-tab.is-active .ledger-count {
+  background: rgba(13, 31, 26, 0.16);
+}
