@@ -24,10 +24,15 @@ const portraits = [
     file: 'ecrin-aydinli.jpg',
     label: 'Ecrin',
   },
+  {
+    url: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/trainer-portraits/cemal-ayhan.jpg',
+    file: 'cemal-ayhan.jpg',
+    label: 'Cemal',
+  },
 ]
 
 const onderFrame =
-  "<div className=\"instructor-frame\">{name === '\u00d6nder G\u00fczel' ? <img className=\"trainer-portrait\" src=\"/trainers/onder-guzel.jpg\" alt=\"\u00d6nder G\u00fczel\" width=\"989\" height=\"1200\" loading=\"lazy\" decoding=\"async\" /> : name === 'Emel Gamze G\u00fczel' ? <img className=\"trainer-portrait emel-portrait\" src=\"/trainers/emel-gamze-guzel.jpg\" alt=\"Emel Gamze G\u00fczel\" width=\"1086\" height=\"1356\" loading=\"lazy\" decoding=\"async\" /> : name === 'Devran \u00c7i\u00e7ek' ? <img className=\"trainer-portrait devran-portrait\" src=\"/trainers/devran-cicek.jpg\" alt=\"Devran \u00c7i\u00e7ek\" width=\"2048\" height=\"1984\" loading=\"lazy\" decoding=\"async\" /> : name === 'Ecrin Ayd\u0131nl\u0131' ? <img className=\"trainer-portrait ecrin-portrait\" src=\"/trainers/ecrin-aydinli.jpg\" alt=\"Ecrin Ayd\u0131nl\u0131\" width=\"1536\" height=\"1815\" loading=\"lazy\" decoding=\"async\" /> : null}</div>"
+  "<div className=\"instructor-frame\">{name === '\u00d6nder G\u00fczel' ? <img className=\"trainer-portrait\" src=\"/trainers/onder-guzel.jpg\" alt=\"\u00d6nder G\u00fczel\" width=\"989\" height=\"1200\" loading=\"lazy\" decoding=\"async\" /> : name === 'Emel Gamze G\u00fczel' ? <img className=\"trainer-portrait emel-portrait\" src=\"/trainers/emel-gamze-guzel.jpg\" alt=\"Emel Gamze G\u00fczel\" width=\"1086\" height=\"1356\" loading=\"lazy\" decoding=\"async\" /> : name === 'Devran \u00c7i\u00e7ek' ? <img className=\"trainer-portrait devran-portrait\" src=\"/trainers/devran-cicek.jpg\" alt=\"Devran \u00c7i\u00e7ek\" width=\"2048\" height=\"1984\" loading=\"lazy\" decoding=\"async\" /> : name === 'Ecrin Ayd\u0131nl\u0131' ? <img className=\"trainer-portrait ecrin-portrait\" src=\"/trainers/ecrin-aydinli.jpg\" alt=\"Ecrin Ayd\u0131nl\u0131\" width=\"1536\" height=\"1815\" loading=\"lazy\" decoding=\"async\" /> : name === 'Cemal Ayhan' ? <img className=\"trainer-portrait cemal-portrait\" src=\"/trainers/cemal-ayhan.jpg\" alt=\"Cemal Ayhan\" width=\"1024\" height=\"1008\" loading=\"lazy\" decoding=\"async\" /> : null}</div>"
 
 async function writePortrait(root, portrait) {
   const response = await fetch(portrait.url)
