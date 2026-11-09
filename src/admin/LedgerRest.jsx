@@ -324,7 +324,7 @@ export default function LedgerRest({
       <section className="admin-block">
         <h2>Eski müşteri</h2>
         <p className="sheet-copy">
-          Listede olmayan danışanı buradan ekle. Telefon boş kalabilir. Kalan ders, seçilen başlangıç gününden itibaren 30 gün geçerlidir. Tutar boş bırakılırsa ödeme kaydı açılmaz. Tutar yazılırsa nakit olarak kayda geçer ve ders hakkını ayrıca artırmaz.
+          Listede olmayan danışanı buradan ekle. Telefon boş kalabilir. Kalan ders, seçilen başlangıç gününden itibaren 45 gün geçerlidir. Tutar boş bırakılırsa ödeme kaydı açılmaz. Tutar yazılırsa nakit olarak kayda geçer ve ders hakkını ayrıca artırmaz.
         </p>
         <form className="admin-desk admin-desk--existing" onSubmit={submitExisting}>
           <label>
@@ -383,7 +383,7 @@ export default function LedgerRest({
       <section className="admin-block">
         <h2>Kasa</h2>
         <p className="sheet-copy">
-          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Başlangıçtan 30 gün sonra kullanım biter. Öğretmen seçilir. Mevcut kayıt silinmez.
+          Kalan ders, danışanın toplam hakkını bu sayıya getirir. Başlangıçtan 45 gün sonra kullanım biter. Öğretmen seçilir. Mevcut kayıt silinmez.
         </p>
         <h3>Kalan ders</h3>
         <form className="admin-desk admin-desk--balance" onSubmit={submitBalance}>
