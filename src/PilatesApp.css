@@ -2585,21 +2585,31 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
   gap: 10px;
+  align-items: start;
 }
 
 .teacher-card {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  min-height: 0;
-  padding: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
   border: 1px solid rgba(244, 239, 231, 0.14);
   border-radius: 14px;
   background: rgba(12, 27, 24, 0.7);
   color: var(--cream);
   text-align: left;
+}
+
+.teacher-card.is-selected {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 8px;
+  border-color: transparent;
+  background: #1f8a78;
 }
 
 .teacher-photo {
@@ -2620,11 +2630,6 @@ textarea {
 .teacher-card-meta strong {
   font-size: 0.92rem;
   line-height: 1.2;
-}
-
-.teacher-card.is-selected {
-  border-color: transparent;
-  background: #1f8a78;
 }
 
 .teacher-badge {
