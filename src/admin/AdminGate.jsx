@@ -10,6 +10,8 @@ import {
   fetchLessonHistory,
   fetchLinkRequests,
   decideLinkRequest,
+  searchSiteAccounts,
+  linkMemberAccount,
   markAttendance,
   fetchAdminTeachers,
   activateMemberPackage,
@@ -271,6 +273,31 @@ function AdminGate({ onClose }) {
       showDetail(client.id, next)
     } catch (detailError) {
       setError(adminMessage(detailError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function searchAccounts(query) {
+    if (!session) return []
+    return searchSiteAccounts(session.username, session.password, query)
+  }
+
+  async function linkAccounts(memberId, userId) {
+    if (!session) return null
+    setBusy(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const result = await linkMemberAccount(session.username, session.password, memberId, userId)
+      await loadDesk(session)
+      const name = result?.full_name || 'Kayıt'
+      setNotice(`Hesap bağlandı. ${name}.`)
+      return result
+    } catch (linkError) {
+      setError(adminMessage(linkError))
+      throw linkError
     } finally {
       setBusy(false)
     }
@@ -859,6 +886,8 @@ function AdminGate({ onClose }) {
         setCashSession={setCashSession}
         submitCash={submitCash}
         decideLink={decideLink}
+        searchSiteAccounts={searchAccounts}
+        linkAccounts={linkAccounts}
         updateAttendance={updateAttendance}
         memberId={memberId}
         setMemberId={setMemberId}
