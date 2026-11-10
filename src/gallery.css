@@ -1,0 +1,33 @@
+section.gallery .gallery-lede {
+  margin-top: 14px;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+section.gallery .gallery-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+section.gallery .gallery-image {
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-position: center;
+}
+
+@media (max-width: 960px) {
+  section.gallery .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  section.gallery .gallery-image {
+    height: auto;
+  }
+
+  section.gallery .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+}

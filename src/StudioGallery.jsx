@@ -1,3 +1,5 @@
+import './gallery.css'
+
 const photos = [
   { src: '/gallery/studio-empty-1.jpg', caption: 'Boş stüdyo', alt: 'Boş stüdyo 1' },
   { src: '/gallery/studio-empty-2.jpg', caption: 'Boş stüdyo', alt: 'Boş stüdyo 2' },
