@@ -1,11 +1,11 @@
 import './gallery.css'
 
-const photos = [
-  { src: '/gallery/studio-empty-1.jpg', caption: 'Boş stüdyo', alt: 'Boş stüdyo 1' },
-  { src: '/gallery/studio-empty-2.jpg', caption: 'Boş stüdyo', alt: 'Boş stüdyo 2' },
-  { src: '/gallery/studio-class-1.jpg', caption: 'Ders', alt: 'Ders 1' },
-  { src: '/gallery/studio-class-2.jpg', caption: 'Ders', alt: 'Ders 2' },
-  { src: '/gallery/studio-class-3.jpg', caption: 'Ders', alt: 'Ders 3' },
+const frames = [
+  { caption: 'Boş stüdyo' },
+  { caption: 'Boş stüdyo' },
+  { caption: 'Ders' },
+  { caption: 'Ders' },
+  { caption: 'Ders' },
 ]
 
 export default function StudioGallery() {
@@ -19,9 +19,9 @@ export default function StudioGallery() {
         </div>
       </div>
       <div className="gallery-grid">
-        {photos.map((item) => (
-          <figure key={item.src} className="gallery-item">
-            <img className="gallery-image" src={item.src} alt={item.alt} loading="lazy" />
+        {frames.map((item, index) => (
+          <figure key={`${item.caption}-${index}`} className="gallery-item">
+            <div className="gallery-frame" />
             <figcaption>{item.caption}</figcaption>
           </figure>
         ))}

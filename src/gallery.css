@@ -14,11 +14,13 @@ section.gallery {
 section.gallery .gallery-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   width: 100%;
+  max-width: 100%;
   min-width: 0;
 }
 
 section.gallery .gallery-item {
   min-width: 0;
+  max-width: 100%;
 }
 
 section.gallery .gallery-item:nth-child(-n + 2) {
@@ -29,20 +31,20 @@ section.gallery .gallery-item:nth-child(n + 3) {
   grid-column: span 2;
 }
 
-section.gallery .gallery-image {
+section.gallery .gallery-frame {
   width: 100%;
   max-width: 100%;
-  height: 340px;
-  min-height: 320px;
-  aspect-ratio: auto;
-  border-radius: 20px;
-  object-fit: cover;
-  object-position: center;
+  min-height: 380px;
+  border: 1px solid rgba(232, 185, 35, 0.38);
+  border-radius: 22px;
+  background:
+    linear-gradient(165deg, rgba(232, 185, 35, 0.12), transparent 46%),
+    var(--bg-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-section.gallery .gallery-item:nth-child(-n + 2) .gallery-image {
-  height: 440px;
-  min-height: 420px;
+section.gallery .gallery-item:nth-child(-n + 2) .gallery-frame {
+  min-height: 460px;
 }
 
 @media (max-width: 960px) {
@@ -56,10 +58,10 @@ section.gallery .gallery-item:nth-child(-n + 2) .gallery-image {
     grid-column: auto;
   }
 
-  section.gallery .gallery-image,
-  section.gallery .gallery-item:nth-child(-n + 2) .gallery-image {
-    height: 300px;
-    min-height: 280px;
+  section.gallery .gallery-frame,
+  section.gallery .gallery-item:nth-child(-n + 2) .gallery-frame,
+  section.gallery .gallery-item:nth-child(n + 3) .gallery-frame {
+    min-height: 320px;
   }
 }
 
@@ -68,9 +70,9 @@ section.gallery .gallery-item:nth-child(-n + 2) .gallery-image {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  section.gallery .gallery-image,
-  section.gallery .gallery-item:nth-child(-n + 2) .gallery-image {
-    height: 260px;
-    min-height: 240px;
+  section.gallery .gallery-frame,
+  section.gallery .gallery-item:nth-child(-n + 2) .gallery-frame,
+  section.gallery .gallery-item:nth-child(n + 3) .gallery-frame {
+    min-height: 280px;
   }
 }
