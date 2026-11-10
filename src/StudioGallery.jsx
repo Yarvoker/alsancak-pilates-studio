@@ -30,13 +30,14 @@ const frames = [
     alt: 'Eğitmen eşliğinde ders',
     width: 1600,
     height: 1200,
+    position: 'center 62%',
   },
   {
     src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-class-stretch.jpg',
     alt: 'Grup dersinde esneme',
     width: 1320,
     height: 1584,
-    tall: true,
+    position: 'center 58%',
   },
 ]
 
@@ -59,7 +60,8 @@ export default function StudioGallery() {
                 alt={item.alt}
                 width={item.width}
                 height={item.height}
-                className={item.tall ? 'gallery-photo gallery-photo--tall' : 'gallery-photo'}
+                className="gallery-photo"
+                style={item.position ? { objectPosition: item.position } : undefined}
                 loading="lazy"
                 decoding="async"
               />
