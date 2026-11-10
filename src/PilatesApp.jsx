@@ -44,7 +44,6 @@ function MapsIcon() {
 const navItems = [
   ['Dersler', 'dersler'],
   ['Eğitmenler', 'egitmen'],
-  ['Galeri', 'galeri'],
   ['Fiyatlar', 'fiyatlar'],
 ]
 
@@ -77,13 +76,6 @@ const disciplines = [
     description: 'Günlük hareketleri güçlendiren, enerji yükselten ve dayanıklılığı artıran akış.',
     badge: 'Max 8',
   },
-]
-
-const galleryItems = [
-  { title: 'Stüdyo', src: '/images/Stüdyo.jpg', alt: 'Alsancak Pilates Studio’nun stüdyo alanı' },
-  { title: 'Reformer', src: '/images/group-reformer.jpg', alt: 'Reformer ekipmanlarında grup Pilates dersi' },
-  { title: 'Cadillac', src: '/images/cadillac-tower.jpg', alt: 'Cadillac Tower ekipmanında Pilates çalışması' },
-  { title: 'Mat', src: '/images/private-session.jpg', alt: 'Eğitmen eşliğinde birebir Pilates seansı' },
 ]
 
 const tlFormat = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 })
@@ -269,8 +261,7 @@ function PilatesApp() {
           <Route path="/iptal-iade" element={<LegalPage contentKey="iptal_iade" title="İptal ve İade" />} />
           <Route path="/mesafeli-satis" element={<LegalPage contentKey="mesafeli_satis" title="Mesafeli Satış Sözleşmesi" />} />
           <Route path="/cerez" element={<LegalPage contentKey="cerez" title="Çerez Politikası" />} />
-          <Route path="/" element={<>
-        {checkoutOpen && <PaymentPanel />}
+          <Route path="/" element={<>{checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
           <div className="hero-copy">
@@ -380,22 +371,6 @@ function PilatesApp() {
           </ul>
         </section>
 
-        <section className="gallery section" id="galeri">
-          <div className="section-heading compact">
-            <p className="eyebrow">GALERİ</p>
-            <h2>Stüdyo anları</h2>
-          </div>
-
-          <div className="gallery-grid">
-            {galleryItems.map((item) => (
-              <figure key={item.title} className="gallery-item">
-                <img className="gallery-image" src={item.src} alt={item.alt} loading="lazy" />
-                <figcaption>{item.title}</figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
         <section className="pricing section" id="fiyatlar">
           <div className="section-heading compact">
             <p className="eyebrow">FİYATLAR</p>
@@ -435,7 +410,7 @@ function PilatesApp() {
           </p>
           <PackageTerms />
         </section>
-        </>)}
+        </>)} 
           </>} />
         </Routes>
       </main>
