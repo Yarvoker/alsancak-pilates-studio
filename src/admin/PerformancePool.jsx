@@ -103,7 +103,7 @@ function PerformancePool({ session }) {
       {error && <p className="booking-error" role="alert">{error}</p>}
       {!busy && !error && (
         <>
-          <div className="table-wrap">
+          <div className="table-wrap phone-cards">
             <table>
               <thead>
                 <tr>
@@ -117,11 +117,11 @@ function PerformancePool({ session }) {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.full_name}</td>
-                    <td>{formatCompleted(row.completed)}</td>
-                    <td>{row.active}</td>
-                    <td>{row.cancelled}</td>
-                    <td>{row.no_show}</td>
+                    <td data-label="Antrenör">{row.full_name}</td>
+                    <td data-label="Tamamlanan">{formatCompleted(row.completed)}</td>
+                    <td data-label="Aktif ders">{row.active}</td>
+                    <td data-label="İptal">{row.cancelled}</td>
+                    <td data-label="Gelmedi">{row.no_show}</td>
                   </tr>
                 ))}
               </tbody>
