@@ -264,7 +264,7 @@ function ShiftsPanel({ session, onNotice }) {
         Haftalık şablon, o ayda her günün ilk dolu örneğini aynı haftanın diğer günlerine yazar. Pazar ve kapalı günler gri görünür.
       </p>
       {error && <p className="booking-error" role="alert">{error}</p>}
-      <div className="shift-phone">
+      <div className="shift-phone" style={{ display: 'none' }}>
         {teachers.map((person) => (
           <article className="shift-person" key={person.id}>
             <h3>{person.full_name}</h3>
