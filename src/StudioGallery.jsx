@@ -1,12 +1,6 @@
 import './gallery.css'
 
-const frames = [
-  { caption: 'Boş stüdyo' },
-  { caption: 'Boş stüdyo' },
-  { caption: 'Ders' },
-  { caption: 'Ders' },
-  { caption: 'Ders' },
-]
+const frameCount = 5
 
 export default function StudioGallery() {
   return (
@@ -19,10 +13,9 @@ export default function StudioGallery() {
         </div>
       </div>
       <div className="gallery-grid">
-        {frames.map((item, index) => (
-          <figure key={`${item.caption}-${index}`} className="gallery-item">
+        {Array.from({ length: frameCount }, (_, index) => (
+          <figure key={index} className="gallery-item">
             <div className="gallery-frame" />
-            <figcaption>{item.caption}</figcaption>
           </figure>
         ))}
       </div>
