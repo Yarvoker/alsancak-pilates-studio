@@ -41,7 +41,7 @@ function TeachersPanel({ session, onNotice }) {
     <section className="admin-block">
       <h2>Öğretmenler</h2>
       {error && <p className="booking-error" role="alert">{error}</p>}
-      <div className="table-wrap">
+      <div className="table-wrap phone-cards">
         <table>
           <thead>
             <tr>
@@ -54,9 +54,9 @@ function TeachersPanel({ session, onNotice }) {
           <tbody>
             {teachers.map((person) => (
               <tr key={person.id}>
-                <td>{person.full_name}</td>
-                {['gives_group', 'gives_private', 'active'].map((field) => (
-                  <td key={field}>
+                <td data-label="Ad">{person.full_name}</td>
+                {[['gives_group', 'Grup dersi'], ['gives_private', 'Özel ders'], ['active', 'Aktif']].map(([field, label]) => (
+                  <td key={field} data-label={label}>
                     <input
                       type="checkbox"
                       checked={Boolean(person[field])}
