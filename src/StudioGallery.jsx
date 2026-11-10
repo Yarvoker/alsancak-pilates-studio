@@ -1,6 +1,44 @@
 import './gallery.css'
 
-const frameCount = 5
+const frames = [
+  {
+    src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-empty-wide.jpg',
+    alt: 'Boş stüdyo',
+    width: 1600,
+    height: 1200,
+  },
+  {
+    src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-class-roll.jpg',
+    alt: 'Reformer dersi',
+    width: 1600,
+    height: 1200,
+  },
+  {
+    src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-empty-reformers.jpg',
+    alt: 'Boş reformer sırası',
+    width: 1600,
+    height: 1200,
+  },
+  {
+    src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-class-standing.jpg',
+    alt: 'Ayakta grup dersi',
+    width: 1600,
+    height: 1200,
+  },
+  {
+    src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-instructor.jpg',
+    alt: 'Eğitmen eşliğinde ders',
+    width: 1600,
+    height: 1200,
+  },
+  {
+    src: 'https://tkzbfgkeridpaqmylunn.supabase.co/storage/v1/object/public/studio-gallery/studio-class-stretch.jpg',
+    alt: 'Grup dersinde esneme',
+    width: 1320,
+    height: 1584,
+    tall: true,
+  },
+]
 
 export default function StudioGallery() {
   return (
@@ -13,9 +51,19 @@ export default function StudioGallery() {
         </div>
       </div>
       <div className="gallery-grid">
-        {Array.from({ length: frameCount }, (_, index) => (
-          <figure key={index} className="gallery-item">
-            <div className="gallery-frame" />
+        {frames.map((item) => (
+          <figure key={item.src} className="gallery-item">
+            <div className="gallery-frame">
+              <img
+                src={item.src}
+                alt={item.alt}
+                width={item.width}
+                height={item.height}
+                className={item.tall ? 'gallery-photo gallery-photo--tall' : 'gallery-photo'}
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
           </figure>
         ))}
       </div>
