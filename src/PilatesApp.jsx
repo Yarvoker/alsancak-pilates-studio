@@ -8,12 +8,13 @@ import PackageTerms from './booking/PackageTerms.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
 import EmailOtpCard from './booking/EmailOtpCard.jsx'
 import PaymentPanel from './booking/PaymentPanel.jsx'
+import StudioGallery from './StudioGallery.jsx'
 import { useMemberDashboard } from './booking/useMemberDashboard.js'
 import './PilatesApp.css'
 import './admin/hours-panel.css'
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
-const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seansı%20hakkında%20bilgi%20almak%20istiyorum'
+const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seans%C4%B1%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum'
 const mapsDirectionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=38.4348526,27.1427269'
 const mapsEmbedUrl = 'https://www.google.com/maps?q=38.4348526,27.1427269&z=16&output=embed'
 
@@ -44,6 +45,7 @@ function MapsIcon() {
 const navItems = [
   ['Dersler', 'dersler'],
   ['Eğitmenler', 'egitmen'],
+  ['Galeri', 'galeri'],
   ['Fiyatlar', 'fiyatlar'],
 ]
 
@@ -370,6 +372,8 @@ function PilatesApp() {
             ))}
           </ul>
         </section>
+
+        <StudioGallery />
 
         <section className="pricing section" id="fiyatlar">
           <div className="section-heading compact">
