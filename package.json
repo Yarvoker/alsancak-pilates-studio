@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/write-gallery.mjs && vite",
+    "build": "node scripts/write-gallery.mjs && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
