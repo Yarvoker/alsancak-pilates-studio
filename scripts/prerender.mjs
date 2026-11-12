@@ -1,22 +1,29 @@
 import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { preview } from 'vite'
 import { HOME_H1, PRIVATE_PAGES, PUBLIC_PAGES, canonicalUrl } from '../src/siteSeo.js'
 
 async function loadChromium() {
-  try {
-    return (await import('playwright')).chromium
-  } catch {
-    const install = spawnSync(
-      'npm',
-      ['install', '--no-save', '--no-package-lock', 'playwright@1.65.0'],
-      { stdio: 'inherit', cwd: root },
-    )
-    if (install.status !== 0) throw new Error('Could not install Playwright for prerender')
-    return (await import('playwright')).chromium
+  const toolRoot = path.join(root, '.prerender-tools')
+  const entry = path.join(toolRoot, 'node_modules/playwright/index.mjs')
+  if (!fs.existsSync(entry)) {
+    fs.mkdirSync(toolRoot, { recursive: true })
+    fs.writeFileSync(path.join(toolRoot, 'package.json'), '{"private":true}\n')
+    const install = spawnSync('npm', ['install', '--no-package-lock', 'playwright@1.65.0'], {
+      cwd: toolRoot,
+      env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' },
+      encoding: 'utf8',
+    })
+    if (install.status !== 0) {
+      throw new Error(`Could not install Playwright for prerender\n${install.stdout || ''}\n${install.stderr || ''}`)
+    }
   }
+  const playwright = await import(pathToFileURL(entry).href)
+  if (!playwright.chromium) throw new Error('Playwright did not export chromium')
+  return playwright.chromium
 }
 
 const root = process.cwd()
@@ -72,10 +79,19 @@ async function launchBrowser() {
   const options = { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] }
   try {
     return await chromium.launch(options)
-  } catch {
-    const install = spawnSync('npx', ['playwright', 'install', 'chromium'], { stdio: 'inherit', cwd: root })
-    if (install.status !== 0) throw new Error('playwright install chromium failed')
-    return chromium.launch(options)
+  } catch (error) {
+    const install = spawnSync('npx', ['playwright', 'install', 'chromium'], {
+      cwd: path.join(root, '.prerender-tools'),
+      encoding: 'utf8',
+    })
+    if (install.status !== 0) {
+      throw new Error(`playwright install chromium failed\n${install.stderr || ''}\n${error}`)
+    }
+    try {
+      return await chromium.launch(options)
+    } catch (launchError) {
+      throw new Error(`Chromium did not start\n${launchError}`)
+    }
   }
 }
 
