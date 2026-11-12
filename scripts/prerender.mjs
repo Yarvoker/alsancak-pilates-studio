@@ -22,7 +22,7 @@ function withMeta(shell, page) {
   html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${page.title}</title>`)
   html = replaceTag(
     html,
-    /<link\\s+rel="canonical"\\s+href="[^"]*"\\s*\\/?>/,
+    /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/,
     `<link rel="canonical" href="${canonicalUrl(page.path)}" />`,
   )
   html = replaceTag(html, metaPattern('name', 'robots'), `<meta name="robots" content="${page.robots || 'index, follow'}" />`)
