@@ -31,6 +31,10 @@
     {
       "source": "/hesabim/:path*",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
   "rewrites": [
@@ -40,6 +44,12 @@
     { "source": "/iptal-iade", "destination": "/index.html" },
     { "source": "/mesafeli-satis", "destination": "/index.html" },
     { "source": "/cerez", "destination": "/index.html" },
-    { "source": "/admin", "destination": "/index.html" }
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/reformer-pilates", "destination": "/index.html" },
+    { "source": "/mat-pilates", "destination": "/index.html" },
+    { "source": "/fonksiyonel-pilates", "destination": "/index.html" },
+    { "source": "/ozel-ders", "destination": "/index.html" },
+    { "source": "/egitmenler", "destination": "/index.html" },
+    { "source": "/hakkimizda", "destination": "/index.html" }
   ]
 }

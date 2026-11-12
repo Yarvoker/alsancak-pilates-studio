@@ -1,3 +1,5 @@
+import { PAGES } from './studioCopy.js'
+
 export const SITE_ORIGIN = 'https://www.alsancakpilates.com'
 
 export const HOME_H1 = 'Alsancak’ta Reformer ve Mat Pilates'
@@ -13,6 +15,12 @@ export const PUBLIC_PAGES = [
     description: HOME_DESCRIPTION,
     robots: 'index, follow',
   },
+  ...PAGES.map((page) => ({
+    path: page.path,
+    title: page.title,
+    description: page.description,
+    robots: 'index, follow',
+  })),
   {
     path: '/gizlilik',
     title: 'Aydınlatma Metni | Alsancak Pilates Studio',
