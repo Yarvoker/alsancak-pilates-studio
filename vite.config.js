@@ -1,7 +1,32 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { writeIcons } from './scripts/write-icons.mjs'
+
+let prerenderStarted = false
+
+function seoBuild() {
+  return {
+    name: 'seo-build',
+    buildStart() {
+      return writeIcons(process.cwd())
+    },
+    closeBundle() {
+      if (process.env.PRERENDER === '1' || prerenderStarted) return
+      prerenderStarted = true
+      const result = spawnSync(process.execPath, ['scripts/prerender.mjs'], {
+        stdio: 'inherit',
+        cwd: process.cwd(),
+        env: { ...process.env, PRERENDER: '1' },
+      })
+      if (result.status !== 0) {
+        throw new Error('Public page prerender failed')
+      }
+    },
+  }
+}
 
 const portraits = [
   {
@@ -49,7 +74,10 @@ async function writePortrait(root, portrait) {
 }
 
 function onderPortrait(root = process.cwd()) {
-  const publish = () => Promise.all(portraits.map((portrait) => writePortrait(root, portrait)))
+  const publish = () => {
+    if (process.env.PRERENDER === '1') return Promise.resolve()
+    return Promise.all(portraits.map((portrait) => writePortrait(root, portrait)))
+  }
   return {
     name: 'onder-portrait',
     enforce: 'pre',
@@ -72,5 +100,5 @@ function onderPortrait(root = process.cwd()) {
 }
 
 export default defineConfig({
-  plugins: [react(), onderPortrait()],
+  plugins: [react(), onderPortrait(), seoBuild()],
 })
