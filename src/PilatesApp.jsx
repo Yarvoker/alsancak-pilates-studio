@@ -12,6 +12,8 @@ import StudioGallery from './StudioGallery.jsx'
 import { useMemberDashboard } from './booking/useMemberDashboard.js'
 import './PilatesApp.css'
 import './admin/hours-panel.css'
+import StudioPage, { FaqBlock } from './StudioPage.jsx'
+import { TRAINERS } from './studioCopy.js'
 
 const AdminGate = lazy(() => import('./admin/AdminGate.jsx'))
 const AccountPage = lazy(() => import('./account/AccountPage.jsx'))
@@ -74,12 +76,14 @@ const disciplines = [
     badge: 'Max 6',
     image: '/images/group-reformer.jpg',
     imageAlt: 'Alsancak Pilates Studio’da grup Reformer dersi',
+    href: '/reformer-pilates',
   },
   {
     id: 'functional-crossfit',
     title: 'Fonksiyonel Pilates',
     description: 'Günlük hareketleri güçlendiren, enerji yükselten ve dayanıklılığı artıran akış.',
     badge: 'Max 8',
+    href: '/fonksiyonel-pilates',
   },
 ]
 
@@ -275,6 +279,12 @@ function PilatesApp() {
           <Route path="/iptal-iade" element={<LegalPage contentKey="iptal_iade" title="İptal ve İade" />} />
           <Route path="/mesafeli-satis" element={<LegalPage contentKey="mesafeli_satis" title="Mesafeli Satış Sözleşmesi" />} />
           <Route path="/cerez" element={<LegalPage contentKey="cerez" title="Çerez Politikası" />} />
+          <Route path="/reformer-pilates" element={<StudioPage path="/reformer-pilates" />} />
+          <Route path="/mat-pilates" element={<StudioPage path="/mat-pilates" />} />
+          <Route path="/fonksiyonel-pilates" element={<StudioPage path="/fonksiyonel-pilates" />} />
+          <Route path="/ozel-ders" element={<StudioPage path="/ozel-ders" />} />
+          <Route path="/egitmenler" element={<StudioPage path="/egitmenler" />} />
+          <Route path="/hakkimizda" element={<StudioPage path="/hakkimizda" />} />
           <Route path="/" element={<><Seo title={HOME_TITLE} description={HOME_DESCRIPTION} path="/" />{checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
@@ -310,6 +320,7 @@ function PilatesApp() {
               <video
                 className="hero-video"
                 src="/images/hero-pilates.mp4"
+                poster="/images/group-reformer.jpg"
                 autoPlay
                 muted
                 loop
@@ -337,10 +348,17 @@ function PilatesApp() {
                 <div className="card-body">
                   <h3>{item.title}</h3>
                   <p>{item.description}</p>
+                  {item.href ? <a className="class-more" href={item.href}>{item.title} sayfası</a> : null}
                 </div>
               </article>
             ))}
           </div>
+          <p className="class-links">
+            <a href="/reformer-pilates">Reformer Pilates</a>
+            <a href="/mat-pilates">Mat Pilates</a>
+            <a href="/fonksiyonel-pilates">Fonksiyonel Pilates</a>
+            <a href="/ozel-ders">Özel ders</a>
+          </p>
         </section>
 
         <section className="booking section" id="iletisim">
@@ -379,7 +397,9 @@ function PilatesApp() {
             {instructors.map((name) => (
               <li key={name} className="instructor-slot">
                 <div className="instructor-frame" />
-                <p className="instructor-name">{name}</p>
+                <p className="instructor-name">
+                  <a href={`/egitmenler#${TRAINERS.find((trainer) => trainer.name === name)?.slug || ''}`}>{name}</a>
+                </p>
               </li>
             ))}
           </ul>
@@ -426,6 +446,7 @@ function PilatesApp() {
           </p>
           <PackageTerms />
         </section>
+        <FaqBlock />
         </>)}
           </>} />
         </Routes>
@@ -439,6 +460,14 @@ function PilatesApp() {
           <a href="/iptal-iade">İptal ve İade</a>
           <a href="/mesafeli-satis">Mesafeli Satış Sözleşmesi</a>
           <a href="/cerez">Çerez Politikası</a>
+        </nav>
+        <nav className="footer-legal" aria-label="Stüdyo sayfaları">
+          <a href="/reformer-pilates">Reformer Pilates</a>
+          <a href="/mat-pilates">Mat Pilates</a>
+          <a href="/fonksiyonel-pilates">Fonksiyonel Pilates</a>
+          <a href="/ozel-ders">Özel ders</a>
+          <a href="/egitmenler">Eğitmenler</a>
+          <a href="/hakkimizda">Hakkımızda</a>
         </nav>
         {onHome ? (
           <>
