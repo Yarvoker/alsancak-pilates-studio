@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import AccountPage from './account/AccountPage.jsx'
 import PrivacyPage from './PrivacyPage.jsx'
-import AdminGate from './admin/AdminGate.jsx'
 import LegalPage from './LegalPage.jsx'
+import Seo from './Seo.jsx'
+import { HOME_DESCRIPTION, HOME_H1, HOME_TITLE } from './siteSeo.js'
 import PackageTerms from './booking/PackageTerms.jsx'
 import BookingPanel from './booking/BookingPanel.jsx'
 import EmailOtpCard from './booking/EmailOtpCard.jsx'
@@ -12,6 +12,9 @@ import StudioGallery from './StudioGallery.jsx'
 import { useMemberDashboard } from './booking/useMemberDashboard.js'
 import './PilatesApp.css'
 import './admin/hours-panel.css'
+
+const AdminGate = lazy(() => import('./admin/AdminGate.jsx'))
+const AccountPage = lazy(() => import('./account/AccountPage.jsx'))
 
 const instagramUrl = 'https://www.instagram.com/alsancak_pilates/'
 const whatsappUrl = 'https://wa.me/905302071908?text=Merhaba,%20deneme%20seans%C4%B1%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum'
@@ -155,6 +158,15 @@ function AdminRoute() {
   return <AdminGate onClose={() => navigate('/')} />
 }
 
+function PrivateSeo({ title, path, children }) {
+  return (
+    <>
+      <Seo title={title} path={path} robots="noindex, nofollow" />
+      <Suspense fallback={null}>{children}</Suspense>
+    </>
+  )
+}
+
 function PilatesApp() {
   const location = useLocation()
   const onHome = location.pathname === '/'
@@ -256,19 +268,19 @@ function PilatesApp() {
 
       <main>
         <Routes>
-          <Route path="/admin" element={<AdminRoute />} />
-          <Route path="/hesabim" element={<AccountPage user={authUser} onUser={setAuthUser} />} />
+          <Route path="/admin" element={<PrivateSeo title="Yönetim | Alsancak Pilates Studio" path="/admin"><AdminRoute /></PrivateSeo>} />
+          <Route path="/hesabim" element={<PrivateSeo title="Hesabım · Alsancak Pilates Studio" path="/hesabim"><AccountPage user={authUser} onUser={setAuthUser} /></PrivateSeo>} />
           <Route path="/gizlilik" element={<PrivacyPage />} />
           <Route path="/paket-kosullari" element={<LegalPage contentKey="package_terms" title="Paket Koşulları" />} />
           <Route path="/iptal-iade" element={<LegalPage contentKey="iptal_iade" title="İptal ve İade" />} />
           <Route path="/mesafeli-satis" element={<LegalPage contentKey="mesafeli_satis" title="Mesafeli Satış Sözleşmesi" />} />
           <Route path="/cerez" element={<LegalPage contentKey="cerez" title="Çerez Politikası" />} />
-          <Route path="/" element={<>{checkoutOpen && <PaymentPanel />}
+          <Route path="/" element={<><Seo title={HOME_TITLE} description={HOME_DESCRIPTION} path="/" />{checkoutOpen && <PaymentPanel />}
         {!checkoutOpen && (<>
         <section className="hero section" id="ana-sayfa">
           <div className="hero-copy">
             <p className="eyebrow">ALSANCAK · İZMİR</p>
-            <h1>Hareket için doğru yer.</h1>
+            <h1>{HOME_H1}</h1>
             <p className="hero-text">
               Alsancak, İzmir’de Mat ve Reformer Pilates, Fonksiyonel antrenman ve Crossfit.
             </p>
@@ -319,7 +331,7 @@ function PilatesApp() {
               <article key={item.id} className={item.image ? 'class-card' : 'class-card class-card--text-only'}>
                 {item.image && (
                   <div className="card-image">
-                    <img src={item.image} alt={item.imageAlt} loading="lazy" />
+                    <img src={item.image} alt={item.imageAlt} width="1170" height="780" loading="lazy" />
                   </div>
                 )}
                 <div className="card-body">
@@ -347,7 +359,7 @@ function PilatesApp() {
         <section className="trainer section" id="egitmen" aria-labelledby="egitmen-baslik">
           <div className="trainer-intro">
             <div className="trainer-intro-copy">
-              <p className="eyebrow" id="egitmen-baslik">Eğitmenler</p>
+              <h2 className="eyebrow" id="egitmen-baslik">Eğitmenler</h2>
               <p className="trainer-text">
                 Türkiye Cimnastik Federasyonu sertifikası ile Mat & Reformer ve fonksiyonel antrenman alanında uzmanlaşmış bir yaklaşım.
               </p>
@@ -414,7 +426,7 @@ function PilatesApp() {
           </p>
           <PackageTerms />
         </section>
-        </>)} 
+        </>)}
           </>} />
         </Routes>
       </main>
