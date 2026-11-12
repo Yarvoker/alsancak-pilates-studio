@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { HOME_H1, PRIVATE_PAGES, PUBLIC_PAGES, canonicalUrl } from '../src/siteSeo.js'
+import { HOME_FAQS, TRAINERS, jsonLdForPath, pageByStudioPath } from '../src/studioCopy.js'
 
 const root = process.cwd()
 const dist = path.join(root, 'dist')
@@ -21,7 +22,7 @@ function withMeta(shell, page) {
   html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${page.title}</title>`)
   html = replaceTag(
     html,
-    /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/,
+    /<link\\s+rel="canonical"\\s+href="[^"]*"\\s*\\/?>/,
     `<link rel="canonical" href="${canonicalUrl(page.path)}" />`,
   )
   html = replaceTag(html, metaPattern('name', 'robots'), `<meta name="robots" content="${page.robots || 'index, follow'}" />`)
@@ -34,6 +35,38 @@ function withMeta(shell, page) {
   html = replaceTag(html, metaPattern('property', 'og:title'), `<meta property="og:title" content="${page.title}" />`)
   html = replaceTag(html, metaPattern('name', 'twitter:title'), `<meta name="twitter:title" content="${page.title}" />`)
   return html
+}
+
+function esc(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+
+function jsonScript(path) {
+  const data = jsonLdForPath(path)
+  if (!data) return ''
+  return `<script type="application/ld+json">${JSON.stringify(data).replaceAll('<', '\\u003c')}</script>`
+}
+
+function studioBody(page) {
+  const copy = pageByStudioPath(page.path)
+  const image = copy.image
+    ? `<img src="${esc(copy.image)}" alt="${esc(copy.imageAlt)}" width="${copy.imageWidth}" height="${copy.imageHeight}" />`
+    : ''
+  const paragraphs = copy.paragraphs.map((paragraph) => `<p>${esc(paragraph)}</p>`).join('')
+  const trainers = copy.kind === 'trainers'
+    ? `<ul>${TRAINERS.map((trainer) => `<li id="${esc(trainer.slug)}">${esc(trainer.name)}</li>`).join('')}</ul>`
+    : ''
+  const faqs = (copy.faqs || [])
+    .map((item) => `<h3>${esc(item.question)}</h3><p>${esc(item.answer)}</p>`)
+    .join('')
+  const links = (copy.links || [])
+    .map((link) => `<a href="${esc(link.href)}">${esc(link.label)}</a>`)
+    .join(' ')
+  return `<main><h1>${esc(copy.h1)}</h1>${image}${paragraphs}${trainers}<h2>Sık sorulan sorular</h2>${faqs}<nav>${links}</nav>${jsonScript(page.path)}</main>`
 }
 
 function pageBody(page) {
@@ -73,8 +106,22 @@ function pageBody(page) {
         Alsancak Mahallesi, Talatpaşa Bulvarı No:33/1, Kat:1 Daire:1, Harputlu Apt. Konak / İzmir
         <a href="tel:+905302071908">0530 207 19 08</a>
       </address>
+      <nav>
+        <a href="/reformer-pilates">Reformer Pilates</a>
+        <a href="/mat-pilates">Mat Pilates</a>
+        <a href="/fonksiyonel-pilates">Fonksiyonel Pilates</a>
+        <a href="/ozel-ders">Özel ders</a>
+        <a href="/egitmenler">Eğitmenler</a>
+        <a href="/hakkimizda">Hakkımızda</a>
+      </nav>
+      <section id="sss">
+        <h2>Sık sorulan sorular</h2>
+        ${HOME_FAQS.map((item) => `<h3>${esc(item.question)}</h3><p>${esc(item.answer)}</p>`).join('')}
+      </section>
+      ${jsonScript('/')}
     </main>`
   }
+  if (pageByStudioPath(page.path)) return studioBody(page)
   if (page.path === '/gizlilik') {
     return `<main>
       <h1>Aydınlatma metni</h1>
@@ -93,8 +140,12 @@ function writePage(shell, page) {
   if (!html.includes(page.title) || !html.includes(canonicalUrl(page.path)) || !html.includes('<h1>')) {
     throw new Error(`Prerendered ${page.path} is missing its title, canonical, or heading`)
   }
-  if (page.path === '/' && !html.includes(HOME_H1)) {
-    throw new Error('Homepage prerender is missing the H1')
+  if (page.path === '/' && (!html.includes(HOME_H1) || !html.includes('Sık sorulan sorular') || !html.includes('/reformer-pilates'))) {
+    throw new Error('Homepage prerender is missing the H1, FAQ, or service link')
+  }
+  const studio = pageByStudioPath(page.path)
+  if (studio && !html.includes(studio.h1)) {
+    throw new Error(`Prerendered ${page.path} is missing its H1`)
   }
   const file = page.path === '/'
     ? path.join(dist, 'index.html')
