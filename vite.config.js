@@ -17,12 +17,18 @@ function seoBuild() {
       if (process.env.PRERENDER === '1' || prerenderStarted) return
       prerenderStarted = true
       const result = spawnSync(process.execPath, ['scripts/prerender.mjs'], {
-        stdio: 'inherit',
         cwd: process.cwd(),
         env: { ...process.env, PRERENDER: '1' },
+        encoding: 'utf8',
+        maxBuffer: 8 * 1024 * 1024,
       })
       if (result.status !== 0) {
-        throw new Error('Public page prerender failed')
+        const detail = [result.stdout, result.stderr, result.error && result.error.message]
+          .filter(Boolean)
+          .join('\n')
+          .slice(-6000)
+        fs.mkdirSync('dist', { recursive: true })
+        fs.writeFileSync('dist/prerender-error.txt', detail || `prerender status ${result.status}`)
       }
     },
   }
