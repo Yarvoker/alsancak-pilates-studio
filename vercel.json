@@ -1,5 +1,38 @@
 {
   "ignoreCommand": "bash -c 'git log -1 --pretty=%s | grep -q \"^drop-portrait-part\"'",
+  "buildCommand": "npm run build",
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "alsancak-pilates-studio.vercel.app" }],
+      "destination": "https://www.alsancakpilates.com/",
+      "statusCode": 301
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "alsancak-pilates-studio.vercel.app" }],
+      "destination": "https://www.alsancakpilates.com/:path*",
+      "statusCode": 301
+    }
+  ],
+  "headers": [
+    {
+      "source": "/admin",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/admin/:path*",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/hesabim",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/hesabim/:path*",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    }
+  ],
   "rewrites": [
     { "source": "/hesabim", "destination": "/index.html" },
     { "source": "/gizlilik", "destination": "/index.html" },
