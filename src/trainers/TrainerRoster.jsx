@@ -1,72 +1,25 @@
 import './TrainerRoster.css'
-
-const trainerOrder = [
-  'Önder Güzel',
-  'Emel Gamze Güzel',
-  'Devran Çiçek',
-  'Ecrin Aydınlı',
-  'Cemal Ayhan',
-]
+import { TRAINERS } from '../studioCopy.js'
 
 export default function TrainerRoster() {
   return (
     <ul className="trainer-roster">
-      {trainerOrder.map((name) => (
-        <li key={name} className="instructor-slot">
+      {TRAINERS.map((trainer) => (
+        <li key={trainer.slug} className="instructor-slot">
           <div className="instructor-frame">
-            {name === 'Önder Güzel' ? (
-              <img
-                className="trainer-portrait"
-                src="/trainers/onder-guzel.jpg"
-                alt="Önder Güzel"
-                width="989"
-                height="1200"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : name === 'Emel Gamze Güzel' ? (
-              <img
-                className="trainer-portrait emel-portrait"
-                src="/trainers/emel-gamze-guzel.jpg"
-                alt="Emel Gamze Güzel"
-                width="1086"
-                height="1356"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : name === 'Devran Çiçek' ? (
-              <img
-                className="trainer-portrait devran-portrait"
-                src="/trainers/devran-cicek.jpg"
-                alt="Devran Çiçek"
-                width="2048"
-                height="1984"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : name === 'Ecrin Aydınlı' ? (
-              <img
-                className="trainer-portrait ecrin-portrait"
-                src="/trainers/ecrin-aydinli.jpg"
-                alt="Ecrin Aydınlı"
-                width="1536"
-                height="1815"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : name === 'Cemal Ayhan' ? (
-              <img
-                className="trainer-portrait cemal-portrait"
-                src="/trainers/cemal-ayhan.jpg"
-                alt="Cemal Ayhan"
-                width="1024"
-                height="1008"
-                loading="lazy"
-                decoding="async"
-              />
-            ) : null}
+            <img
+              className={trainer.className ? `trainer-portrait ${trainer.className}` : 'trainer-portrait'}
+              src={trainer.image}
+              alt={trainer.name}
+              width={trainer.width}
+              height={trainer.height}
+              srcSet={trainer.srcSet}
+              sizes={trainer.sizes}
+              loading="lazy"
+              decoding="async"
+            />
           </div>
-          <p className="instructor-name">{name}</p>
+          <p className="instructor-name">{trainer.name}</p>
         </li>
       ))}
     </ul>

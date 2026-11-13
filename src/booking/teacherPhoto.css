@@ -1,0 +1,12 @@
+.teacher-initials {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 112px;
+  border-radius: 10px;
+  background: #142824;
+  color: var(--cream);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
