@@ -2,11 +2,13 @@ import { PAGES } from './studioCopy.js'
 
 export const SITE_ORIGIN = 'https://www.alsancakpilates.com'
 
-export const HOME_H1 = 'Alsancak’ta Reformer ve Mat Pilates'
+export const HOME_H1 = 'Alsancak’ta Reformer Pilates'
 
-export const HOME_TITLE = 'Alsancak Pilates Studio | Reformer ve Mat Pilates, Alsancak İzmir'
+export const HOME_TITLE = 'Alsancak Pilates Studio | Reformer Pilates, Alsancak İzmir'
 
-export const HOME_DESCRIPTION = 'Alsancak, İzmir’de Reformer ve Mat Pilates, fonksiyonel antrenman ve deneme dersi. Türkiye Cimnastik Federasyonu sertifikalı eğitmenler. Rezervasyon için hemen yazın.'
+export const HOME_DESCRIPTION = 'Alsancak, İzmir’de Reformer Pilates, fonksiyonel antrenman ve deneme dersi. Türkiye Cimnastik Federasyonu sertifikalı eğitmenler. Rezervasyon için hemen yazın.'
+
+export const HERO_TEXT = 'Alsancak, İzmir’de Reformer Pilates ve fonksiyonel antrenman. Deneme dersiyle başlayabilirsin.'
 
 export const PUBLIC_PAGES = [
   {

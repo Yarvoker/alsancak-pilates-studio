@@ -13,6 +13,16 @@
       "has": [{ "type": "host", "value": "alsancak-pilates-studio.vercel.app" }],
       "destination": "https://www.alsancakpilates.com/:path*",
       "statusCode": 301
+    },
+    {
+      "source": "/mat-pilates",
+      "destination": "https://www.alsancakpilates.com/reformer-pilates",
+      "statusCode": 301
+    },
+    {
+      "source": "/mat-pilates/",
+      "destination": "https://www.alsancakpilates.com/reformer-pilates",
+      "statusCode": 301
     }
   ],
   "headers": [
@@ -46,7 +56,6 @@
     { "source": "/cerez", "destination": "/index.html" },
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/reformer-pilates", "destination": "/index.html" },
-    { "source": "/mat-pilates", "destination": "/index.html" },
     { "source": "/fonksiyonel-pilates", "destination": "/index.html" },
     { "source": "/ozel-ders", "destination": "/index.html" },
     { "source": "/egitmenler", "destination": "/index.html" },
