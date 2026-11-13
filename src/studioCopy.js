@@ -12,48 +12,72 @@ export const TRAINERS = [
     name: 'Önder Güzel',
     slug: 'onder-guzel',
     image: '/trainers/onder-guzel.jpg',
+    src: '/trainers/onder-guzel.jpg',
     width: 989,
     height: 1200,
+    objectPosition: 'center 18%',
   },
   {
     name: 'Emel Gamze Güzel',
     slug: 'emel-gamze-guzel',
     image: '/trainers/emel-gamze-guzel.webp',
+    src: '/trainers/emel-gamze-guzel.webp',
     width: 720,
     height: 900,
     srcSet: '/trainers/emel-gamze-guzel-480.webp 480w, /trainers/emel-gamze-guzel.webp 720w',
     sizes: '(max-width: 720px) 46vw, 18vw',
     className: 'emel-portrait',
+    objectPosition: 'center 32%',
   },
   {
     name: 'Devran Çiçek',
     slug: 'devran-cicek',
     image: '/trainers/devran-cicek.webp',
+    src: '/trainers/devran-cicek.webp',
     width: 720,
     height: 698,
     srcSet: '/trainers/devran-cicek-480.webp 480w, /trainers/devran-cicek.webp 720w',
     sizes: '(max-width: 720px) 46vw, 18vw',
     className: 'devran-portrait',
+    objectPosition: 'center 42%',
   },
   {
     name: 'Ecrin Aydınlı',
     slug: 'ecrin-aydinli',
     image: '/trainers/ecrin-aydinli.webp',
+    src: '/trainers/ecrin-aydinli.webp',
     width: 720,
     height: 850,
     srcSet: '/trainers/ecrin-aydinli-480.webp 480w, /trainers/ecrin-aydinli.webp 720w',
     sizes: '(max-width: 720px) 46vw, 18vw',
     className: 'ecrin-portrait',
+    objectPosition: 'center 28%',
   },
   {
     name: 'Cemal Ayhan',
     slug: 'cemal-ayhan',
     image: '/trainers/cemal-ayhan.jpg',
+    src: '/trainers/cemal-ayhan.jpg',
     width: 1024,
     height: 1008,
     className: 'cemal-portrait',
+    objectPosition: 'center 34%',
   },
 ]
+
+export function trainerByName(fullName) {
+  return TRAINERS.find((trainer) => trainer.name === fullName) || null
+}
+
+export function trainerInitials(fullName) {
+  return String(fullName || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0))
+    .join('')
+    .toLocaleUpperCase('tr')
+}
 
 const STUDIO_PHOTO = {
   image: '/images/group-reformer.jpg',
@@ -231,7 +255,7 @@ export const PAGES = [
       'Alsancak Pilates Studio, Alsancak’ta reformer pilates ve fonksiyonel antrenman dersi verir.',
       'Kadronun 20 yıllık tecrübesi vardır. Rozetler Türkiye Cimnastik Federasyonu, Mat & Reformer ve Fonksiyonel Antrenman’dır.',
       'Reformer grubu en fazla 6, fonksiyonel pilates grubu en fazla 8 kişidir. Deneme dersi vardır. 8 ders 8.000 TL, 12 ders 11.500 TL, özel ders 8.000 TL. Grup paketleri satın alındığı tarihten itibaren 45 gün geçerlidir.',
-      `Adres: ${ADDRESS}. Telefon ${PHONE_DISPLAY}. ${HOURS_TEXT}. Instagram hesabı alsancak_pilates.`,
+      `Adres: ${ADDRESS}. Telefon ${PHONE_DISPLAY}. ${HOURS_TEXT} Instagram hesabı alsancak_pilates.`,
     ],
     faqs: [
       {
