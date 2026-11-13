@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchSiteContent } from './booking/bookingApi.js'
+import snapshot from './legalSnapshot.json'
 import Seo from './Seo.jsx'
 import { pageByPath } from './siteSeo.js'
 
@@ -11,8 +12,9 @@ const PATH_BY_KEY = {
 }
 
 function LegalPage({ contentKey, title }) {
-  const [body, setBody] = useState('')
-  const [heading, setHeading] = useState(title)
+  const seeded = snapshot[contentKey] || { title: '', body: '' }
+  const [body, setBody] = useState(seeded.body || '')
+  const [heading, setHeading] = useState(seeded.title?.trim() || title)
 
   useEffect(() => {
     let ignore = false

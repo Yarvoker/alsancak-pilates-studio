@@ -101,6 +101,8 @@ export default function StudioPage({ path }) {
                   alt={trainer.name}
                   width={trainer.width}
                   height={trainer.height}
+                  srcSet={trainer.srcSet}
+                  sizes={trainer.sizes}
                   loading="lazy"
                   decoding="async"
                 />
