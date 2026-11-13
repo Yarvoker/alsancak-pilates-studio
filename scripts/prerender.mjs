@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { HOME_H1, PRIVATE_PAGES, PUBLIC_PAGES, canonicalUrl } from '../src/siteSeo.js'
-import { HOME_FAQS, TRAINERS, jsonLdForPath, pageByStudioPath } from '../src/studioCopy.js'
+import { HERO_TEXT, HOME_H1, PRIVATE_PAGES, PUBLIC_PAGES, canonicalUrl } from '../src/siteSeo.js'
+import { HOME_FAQS, HOURS_TEXT, TRAINERS, jsonLdForPath, pageByStudioPath } from '../src/studioCopy.js'
+import { legalBody, legalTitle } from './legalSnapshot.mjs'
 
 const root = process.cwd()
 const dist = path.join(root, 'dist')
@@ -75,7 +76,7 @@ function pageBody(page) {
       <section id="ana-sayfa">
         <p>ALSANCAK · İZMİR</p>
         <h1>${HOME_H1}</h1>
-        <p>Alsancak, İzmir’de Mat ve Reformer Pilates, Fonksiyonel antrenman ve Crossfit.</p>
+        <p>${esc(HERO_TEXT)}</p>
         <a href="#iletisim">Rezervasyon Yap</a>
       </section>
       <section id="dersler">
@@ -105,10 +106,10 @@ function pageBody(page) {
       <address>
         Alsancak Mahallesi, Talatpaşa Bulvarı No:33/1, Kat:1 Daire:1, Harputlu Apt. Konak / İzmir
         <a href="tel:+905302071908">0530 207 19 08</a>
+        <p>${esc(HOURS_TEXT)}</p>
       </address>
       <nav>
         <a href="/reformer-pilates">Reformer Pilates</a>
-        <a href="/mat-pilates">Mat Pilates</a>
         <a href="/fonksiyonel-pilates">Fonksiyonel Pilates</a>
         <a href="/ozel-ders">Özel ders</a>
         <a href="/egitmenler">Eğitmenler</a>
@@ -124,10 +125,20 @@ function pageBody(page) {
   if (pageByStudioPath(page.path)) return studioBody(page)
   if (page.path === '/gizlilik') {
     return `<main>
+      <section class="section legal-page">
       <h1>Aydınlatma metni</h1>
-      <p>Ad, soyad, telefon ve e-posta adresin ders kaydı, hatırlatma ve stüdyo iletişimi için işlenir. Verilerini Hesabım’dan indirebilir veya silinmesini isteyebilirsin.</p>
-      <p>Verilerin sana aittir. Silme talebi stüdyoya gider; hesap hemen silinmez.</p>
+      <p class="hero-text">Ad, soyad, telefon ve e-posta adresin ders kaydı, hatırlatma ve stüdyo iletişimi için işlenir. Verilerini Hesabım’dan indirebilir veya silinmesini isteyebilirsin.</p>
+      <p class="hero-text">Verilerin sana aittir. Silme talebi stüdyoya gider; hesap hemen silinmez.</p>
+      </section>
     </main>`
+  }
+  const legal = legalBody(page.path)
+  if (legal) {
+    const heading = legalTitle(page.path)
+    if (legal.text.trim().length < 80) {
+      console.error(`LEGAL CONTENT MISSING: ${page.path} Supabase body is ${legal.text.trim().length} characters. Prerender will not invent the contract.`)
+    }
+    return `<main><section class="section legal-page"><h1>${esc(heading)}</h1><p class="hero-text">${esc(legal.text)}</p></section></main>`
   }
   const heading = page.title.split('|')[0].trim()
   return `<main><h1>${heading}</h1><p>${page.description}</p></main>`
@@ -170,3 +181,20 @@ for (const page of PRIVATE_PAGES) {
 }
 
 for (const page of PUBLIC_PAGES) writePage(shell, page)
+
+function walkHtml(dir, found = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name)
+    if (entry.isDirectory()) walkHtml(file, found)
+    else if (entry.name.endsWith('.html')) found.push(file)
+  }
+  return found
+}
+
+for (const file of walkHtml(dist)) {
+  const html = fs.readFileSync(file, 'utf8')
+  if (html.includes('/mat-pilates') || html.includes('Mat Pilates') || html.toLowerCase().includes('mat pilates')) {
+    throw new Error(`${file} still offers mat pilates`)
+  }
+  if (/crossfit/i.test(html)) throw new Error(`${file} still says Crossfit`)
+}
