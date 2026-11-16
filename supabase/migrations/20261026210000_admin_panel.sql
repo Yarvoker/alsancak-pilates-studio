@@ -7,13 +7,9 @@ create table public.admin_credentials (
   created_at timestamptz not null default now()
 );
 
-insert into public.admin_credentials (username, password_hash)
-values (
-  'YARATICI',
-  $hash$$2a$06$hoYaeNRDqPAGwJ6BgUe/LuRgdKkvNpiOlVH7Q0HwH4f.AvXgi27Jy$hash$
-)
-on conflict (username) do update
-set password_hash = excluded.password_hash;
+-- The admin password hash is not stored in this repository.
+-- Set it in public.admin_credentials outside git.
+
 
 create or replace function public.admin_login(p_username text, p_password text)
 returns boolean
