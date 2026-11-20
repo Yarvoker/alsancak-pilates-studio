@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { finishBadge } from './logo/badge-finish.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
@@ -160,24 +161,26 @@ export function writeIcons(root = process.cwd()) {
   if (digest !== '5e7a899dda294fe2cbabc689c1f9aa50100abd9dcd89b5a7f4ad40201680474f') {
     throw new Error('ikon-yuvarlak.png is not the mint badge')
   }
-  const jpgEncoded = [0, 1, 2, 3, 4, 5]
-    .map((part) => fs.readFileSync(path.join(root, 'scripts/logo', `jpg-${part}.b64`), 'utf8'))
-    .join('')
-    .replace(/\s+/g, '')
-  const jpg = Buffer.from(jpgEncoded, 'base64')
+  const source = readPng(path.join(root, 'public/images/ikon-yuvarlak.png'))
+  const jpg = finishBadge(source.pixels, source.width, source.height)
+  writePng(path.join(root, 'public/images/ikon-yuvarlak.png'), source.width, source.height, source.pixels)
+  const cleaned = fs.readFileSync(path.join(root, 'public/images/ikon-yuvarlak.png'))
+  const cleanedDigest = crypto.createHash('sha256').update(cleaned).digest('hex')
+  if (cleanedDigest !== '2de96b05fa539cc8828bc640996eb970ffb1eb2dd5008d3a43de65ccf8cb7d37') {
+    throw new Error('cleaned ikon-yuvarlak.png is not the mint badge without the white ring')
+  }
   if (jpg[0] !== 0xff || jpg[1] !== 0xd8 || jpg[2] !== 0xff) {
-    throw new Error('social logo slices did not decode to a JPEG')
+    throw new Error('social logo did not encode to a JPEG')
   }
   const jpgDigest = crypto.createHash('sha256').update(jpg).digest('hex')
-  if (jpgDigest !== '98b0f5b9b2fc89680d80b3eb117fe3fe25559c38b8c2c5d0ecef116a7e60f0f8') {
+  if (jpgDigest !== 'dcaac4fd84c4087c408815ff3664bed7e0406afb4f6f3c7236d64a674969a2eb') {
     throw new Error('alsancak-pilates-logo.jpg is not the mint badge')
   }
   const jpgDest = path.join(root, 'public/images/alsancak-pilates-logo.jpg')
   fs.mkdirSync(path.dirname(jpgDest), { recursive: true })
   fs.writeFileSync(jpgDest, jpg)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">\n  <image href="data:image/png;base64,${png.toString('base64')}" width="64" height="64"/>\n</svg>\n`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">\n  <image href="data:image/png;base64,${cleaned.toString('base64')}" width="64" height="64"/>\n</svg>\n`
   fs.writeFileSync(path.join(root, 'public/favicon.svg'), svg)
-  const source = readPng(path.join(root, 'public/images/ikon-yuvarlak.png'))
   const dir = path.join(root, 'public')
   for (const [size, name] of [[180, 'apple-touch-icon.png'], [32, 'favicon-32x32.png']]) {
     writePng(path.join(dir, name), size, size, boxResize(source.pixels, source.width, source.height, size, size))
