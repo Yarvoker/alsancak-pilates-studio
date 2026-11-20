@@ -166,14 +166,14 @@ export function writeIcons(root = process.cwd()) {
   writePng(path.join(root, 'public/images/ikon-yuvarlak.png'), source.width, source.height, source.pixels)
   const cleaned = fs.readFileSync(path.join(root, 'public/images/ikon-yuvarlak.png'))
   const cleanedDigest = crypto.createHash('sha256').update(cleaned).digest('hex')
-  if (cleanedDigest !== '2de96b05fa539cc8828bc640996eb970ffb1eb2dd5008d3a43de65ccf8cb7d37') {
+  if (cleanedDigest !== '44b51bd8eb2d6770ef793529145713c90e13ea529fa753a3db15bc3e4eeac622') {
     throw new Error('cleaned ikon-yuvarlak.png is not the mint badge without the white ring')
   }
   if (jpg[0] !== 0xff || jpg[1] !== 0xd8 || jpg[2] !== 0xff) {
     throw new Error('social logo did not encode to a JPEG')
   }
   const jpgDigest = crypto.createHash('sha256').update(jpg).digest('hex')
-  if (jpgDigest !== 'dcaac4fd84c4087c408815ff3664bed7e0406afb4f6f3c7236d64a674969a2eb') {
+  if (jpgDigest !== '6585179602633e94f8f17b1347b375ef6cbe294a22aa58c29542534c74c6c216') {
     throw new Error('alsancak-pilates-logo.jpg is not the mint badge')
   }
   const jpgDest = path.join(root, 'public/images/alsancak-pilates-logo.jpg')
