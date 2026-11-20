@@ -160,13 +160,21 @@ export function writeIcons(root = process.cwd()) {
   if (digest !== '5e7a899dda294fe2cbabc689c1f9aa50100abd9dcd89b5a7f4ad40201680474f') {
     throw new Error('ikon-yuvarlak.png is not the mint badge')
   }
-  const jpgFile = path.join(root, 'scripts/logo/alsancak-pilates-logo.b64')
-  if (fs.existsSync(jpgFile)) {
-    const jpg = writeExact(root, 'alsancak-pilates-logo.b64', 'public/images/alsancak-pilates-logo.jpg')
-    if (jpg[0] !== 0xff || jpg[1] !== 0xd8 || jpg[2] !== 0xff) {
-      throw new Error('alsancak-pilates-logo.b64 did not decode to a JPEG')
-    }
+  const jpgEncoded = [0, 1, 2, 3, 4, 5]
+    .map((part) => fs.readFileSync(path.join(root, 'scripts/logo', `jpg-${part}.b64`), 'utf8'))
+    .join('')
+    .replace(/\s+/g, '')
+  const jpg = Buffer.from(jpgEncoded, 'base64')
+  if (jpg[0] !== 0xff || jpg[1] !== 0xd8 || jpg[2] !== 0xff) {
+    throw new Error('social logo slices did not decode to a JPEG')
   }
+  const jpgDigest = crypto.createHash('sha256').update(jpg).digest('hex')
+  if (jpgDigest !== '98b0f5b9b2fc89680d80b3eb117fe3fe25559c38b8c2c5d0ecef116a7e60f0f8') {
+    throw new Error('alsancak-pilates-logo.jpg is not the mint badge')
+  }
+  const jpgDest = path.join(root, 'public/images/alsancak-pilates-logo.jpg')
+  fs.mkdirSync(path.dirname(jpgDest), { recursive: true })
+  fs.writeFileSync(jpgDest, jpg)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">\n  <image href="data:image/png;base64,${png.toString('base64')}" width="64" height="64"/>\n</svg>\n`
   fs.writeFileSync(path.join(root, 'public/favicon.svg'), svg)
   const source = readPng(path.join(root, 'public/images/ikon-yuvarlak.png'))
