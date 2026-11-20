@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
@@ -134,7 +135,13 @@ function writeIco(file, png) {
 }
 
 function writeExact(root, encodedName, destRelative) {
-  const encoded = fs.readFileSync(path.join(root, 'scripts/logo', encodedName), 'utf8').replace(/\s+/g, '')
+  let encoded = fs.readFileSync(path.join(root, 'scripts/logo', encodedName), 'utf8').replace(/\s+/g, '')
+  if (encodedName === 'ikon-yuvarlak.b64') {
+    encoded = encoded
+      .replace('K4mtR0vQ6BdJgmc7QxdFTAsD', 'K4mtR0vQ6BdJmmc7QxdFTAsD')
+      .replace('2fTB3Ye+6ql+2tMSOvuPv/5/', '2fTB3Ye+6ql+3tMSOvuPv/5/')
+      .replace('1xH4SmPumlIyxx9Dff/7nFzQ', '1xH4SmPumlIywx9Dff/7nFzQ')
+  }
   const bytes = Buffer.from(encoded, 'base64')
   const dest = path.join(root, destRelative)
   fs.mkdirSync(path.dirname(dest), { recursive: true })
@@ -148,6 +155,10 @@ export function writeIcons(root = process.cwd()) {
   const png = writeExact(root, 'ikon-yuvarlak.b64', 'public/images/ikon-yuvarlak.png')
   if (png[0] !== 0x89 || png.toString('ascii', 1, 4) !== 'PNG') {
     throw new Error('ikon-yuvarlak.b64 did not decode to a PNG')
+  }
+  const digest = crypto.createHash('sha256').update(png).digest('hex')
+  if (digest !== '5e7a899dda294fe2cbabc689c1f9aa50100abd9dcd89b5a7f4ad40201680474f') {
+    throw new Error('ikon-yuvarlak.png is not the mint badge')
   }
   const jpgFile = path.join(root, 'scripts/logo/alsancak-pilates-logo.b64')
   if (fs.existsSync(jpgFile)) {
