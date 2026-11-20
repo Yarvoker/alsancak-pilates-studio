@@ -12,6 +12,9 @@ let prerenderStarted = false
 function seoBuild() {
   return {
     name: 'seo-build',
+    configureServer() {
+      writeIcons(process.cwd())
+    },
     buildStart() {
       writeHeroPoster(process.cwd())
       return writeIcons(process.cwd())
@@ -19,7 +22,23 @@ function seoBuild() {
     closeBundle() {
       if (process.env.PRERENDER === '1' || prerenderStarted) return
       prerenderStarted = true
-      compressPublishedHero(path.join(process.cwd(), 'dist'))
+      const root = process.cwd()
+      writeIcons(root)
+      const dist = path.join(root, 'dist')
+      for (const rel of [
+        'favicon.svg',
+        'favicon.ico',
+        'favicon-32x32.png',
+        'apple-touch-icon.png',
+        'images/ikon-yuvarlak.png',
+        'images/alsancak-pilates-logo.jpg',
+      ]) {
+        const from = path.join(root, 'public', rel)
+        const to = path.join(dist, rel)
+        fs.mkdirSync(path.dirname(to), { recursive: true })
+        fs.copyFileSync(from, to)
+      }
+      compressPublishedHero(dist)
       const result = spawnSync(process.execPath, ['scripts/prerender.mjs'], {
         cwd: process.cwd(),
         env: { ...process.env, PRERENDER: '1' },

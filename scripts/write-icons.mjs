@@ -133,7 +133,31 @@ function writeIco(file, png) {
   fs.writeFileSync(file, Buffer.concat([header, png]))
 }
 
+function writeExact(root, encodedName, destRelative) {
+  const encoded = fs.readFileSync(path.join(root, 'scripts/logo', encodedName), 'utf8').replace(/\s+/g, '')
+  const bytes = Buffer.from(encoded, 'base64')
+  const dest = path.join(root, destRelative)
+  fs.mkdirSync(path.dirname(dest), { recursive: true })
+  fs.writeFileSync(dest, bytes)
+  return bytes
+}
+
 export function writeIcons(root = process.cwd()) {
+  // The GitHub contents API stores this text as UTF-8, so the logo bytes live in
+  // ASCII base64 and are written back to the public paths before the build copies them.
+  const png = writeExact(root, 'ikon-yuvarlak.b64', 'public/images/ikon-yuvarlak.png')
+  if (png[0] !== 0x89 || png.toString('ascii', 1, 4) !== 'PNG') {
+    throw new Error('ikon-yuvarlak.b64 did not decode to a PNG')
+  }
+  const jpgFile = path.join(root, 'scripts/logo/alsancak-pilates-logo.b64')
+  if (fs.existsSync(jpgFile)) {
+    const jpg = writeExact(root, 'alsancak-pilates-logo.b64', 'public/images/alsancak-pilates-logo.jpg')
+    if (jpg[0] !== 0xff || jpg[1] !== 0xd8 || jpg[2] !== 0xff) {
+      throw new Error('alsancak-pilates-logo.b64 did not decode to a JPEG')
+    }
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">\n  <image href="data:image/png;base64,${png.toString('base64')}" width="64" height="64"/>\n</svg>\n`
+  fs.writeFileSync(path.join(root, 'public/favicon.svg'), svg)
   const source = readPng(path.join(root, 'public/images/ikon-yuvarlak.png'))
   const dir = path.join(root, 'public')
   for (const [size, name] of [[180, 'apple-touch-icon.png'], [32, 'favicon-32x32.png']]) {
